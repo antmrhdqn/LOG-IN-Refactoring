@@ -1,14 +1,22 @@
 package com.insider.login.approval.entity;
 
+import com.insider.login.approval.enums.ApprovalStatus;
+import com.insider.login.common.error.ErrorCode;
+import com.insider.login.common.error.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Builder;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
 @Entity(name="Approval")
 @Table(name="APPROVAL")
+@Getter
 public class Approval {
     //approval 엔티티
 
@@ -28,8 +36,9 @@ public class Approval {
     @Column(name="APPROVAL_DATE")
     private LocalDateTime approvalDate; //작성 일시
 
-    @Column(name="APPROVAL_STATUS")
-    private String approvalStatus;      //상태
+    @Enumerated(EnumType.STRING)
+    @Column(name="APPROVAL_STATUS", nullable = false)
+    private ApprovalStatus approvalStatus;      //상태
 
     @Column(name="REJECT_REASON")
     private String rejectReason;        //반려사유
@@ -39,7 +48,8 @@ public class Approval {
 
     protected Approval(){}
 
-    public Approval(String approvalNo, int memberId, String approvalTitle, String approvalContent, LocalDateTime approvalDate, String approvalStatus, String rejectReason, String formNo) {
+    @Builder
+    public Approval(String approvalNo, int memberId, String approvalTitle, String approvalContent, LocalDateTime approvalDate, ApprovalStatus approvalStatus, String rejectReason, String formNo) {
         this.approvalNo = approvalNo;
         this.memberId = memberId;
         this.approvalTitle = approvalTitle;
@@ -50,49 +60,39 @@ public class Approval {
         this.formNo = formNo;
     }
 
-    public String getApprovalNo() {
-        return approvalNo;
+    public Approval(String approvalNo, int memberId, String approvalTitle, String approvalContent, LocalDateTime approvalDate, String approvalStatus, String rejectReason, String formNo) {
+        this(approvalNo, memberId, approvalTitle, approvalContent, approvalDate, ApprovalStatus.from(approvalStatus), rejectReason, formNo);
     }
 
-    public int getMemberId() {
-        return memberId;
+    public void withdraw(int memberId) {
+        if (this.memberId != memberId) {
+            throw new BusinessException(ErrorCode.APPROVAL_WITHDRAW_NOT_OWNER);
+        }
+        if (!approvalStatus.canTransitionTo(ApprovalStatus.WITHDRAWN)) {
+            throw new BusinessException(ErrorCode.APPROVAL_INVALID_STATUS_TRANSITION);
+        }
+        this.approvalStatus = ApprovalStatus.WITHDRAWN;
     }
 
-    public String getApprovalTitle() {
-        return approvalTitle;
+    public void submitFromTempSaved() {
+        if (!approvalStatus.canTransitionTo(ApprovalStatus.PROCESSING)) {
+            throw new BusinessException(ErrorCode.APPROVAL_INVALID_STATUS_TRANSITION);
+        }
+        this.approvalStatus = ApprovalStatus.PROCESSING;
     }
 
-    public String getApprovalContent() {
-        return approvalContent;
+    public void markAsApproved() {
+        if (!approvalStatus.canTransitionTo(ApprovalStatus.APPROVED)) {
+            throw new BusinessException(ErrorCode.APPROVAL_INVALID_STATUS_TRANSITION);
+        }
+        this.approvalStatus = ApprovalStatus.APPROVED;
     }
 
-    public LocalDateTime getApprovalDate() {
-        return approvalDate;
-    }
-
-    public String getApprovalStatus() {
-        return approvalStatus;
-    }
-
-    public String getRejectReason() {
-        return rejectReason;
-    }
-
-    public String getFormNo() {
-        return formNo;
-    }
-
-    @Override
-    public String toString() {
-        return "Approval{" +
-                "approvalNo='" + approvalNo + '\'' +
-                ", memberId=" + memberId +
-                ", approvalTitle='" + approvalTitle + '\'' +
-                ", approvalContent='" + approvalContent + '\'' +
-                ", approvalDate=" + approvalDate +
-                ", approvalStatus='" + approvalStatus + '\'' +
-                ", rejectReason='" + rejectReason + '\'' +
-                ", formNo='" + formNo + '\'' +
-                '}';
+    public void markAsRejected(String rejectReason) {
+        if (!approvalStatus.canTransitionTo(ApprovalStatus.REJECTED)) {
+            throw new BusinessException(ErrorCode.APPROVAL_INVALID_STATUS_TRANSITION);
+        }
+        this.approvalStatus = ApprovalStatus.REJECTED;
+        this.rejectReason = rejectReason;
     }
 }

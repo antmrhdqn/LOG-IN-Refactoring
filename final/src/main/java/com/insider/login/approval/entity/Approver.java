@@ -1,14 +1,22 @@
 package com.insider.login.approval.entity;
 
+import com.insider.login.approval.enums.ApproverStatus;
+import com.insider.login.common.error.ErrorCode;
+import com.insider.login.common.error.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Builder;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
 @Entity(name = "Approver")
 @Table(name="APPROVER")
+@Getter
 public class Approver {
 
     //Approver엔티티
@@ -23,8 +31,9 @@ public class Approver {
     @Column(name="APPROVER_ORDER")
     private int approverOrder;          // 결재 순번
 
-    @Column(name="APPROVER_STATUS")
-    private String approverStatus;      //결재 처리 상태
+    @Enumerated(EnumType.STRING)
+    @Column(name="APPROVER_STATUS", nullable = false)
+    private ApproverStatus approverStatus;      //결재 처리 상태
 
     @Column(name="APPROVER_DATE")
     private LocalDateTime approverDate; // 결재처리 일시
@@ -34,7 +43,8 @@ public class Approver {
 
     protected Approver (){}
 
-    public Approver(String approverNo, String approvalNo, int approverOrder, String approverStatus, LocalDateTime approverDate, int memberId) {
+    @Builder
+    public Approver(String approverNo, String approvalNo, int approverOrder, ApproverStatus approverStatus, LocalDateTime approverDate, int memberId) {
         this.approverNo = approverNo;
         this.approvalNo = approvalNo;
         this.approverOrder = approverOrder;
@@ -43,39 +53,23 @@ public class Approver {
         this.memberId = memberId;
     }
 
-    public String getApproverNo() {
-        return approverNo;
+    public Approver(String approverNo, String approvalNo, int approverOrder, String approverStatus, LocalDateTime approverDate, int memberId) {
+        this(approverNo, approvalNo, approverOrder, ApproverStatus.from(approverStatus), approverDate, memberId);
     }
 
-    public String getApprovalNo() {
-        return approvalNo;
+    public void approve() {
+        if (!approverStatus.canTransitionTo(ApproverStatus.APPROVED)) {
+            throw new BusinessException(ErrorCode.APPROVER_INVALID_STATUS_TRANSITION);
+        }
+        this.approverStatus = ApproverStatus.APPROVED;
+        this.approverDate = LocalDateTime.now();
     }
 
-    public int getApproverOrder() {
-        return approverOrder;
-    }
-
-    public String getApproverStatus() {
-        return approverStatus;
-    }
-
-    public LocalDateTime getApproverDate() {
-        return approverDate;
-    }
-
-    public int getMemberId() {
-        return memberId;
-    }
-
-    @Override
-    public String toString() {
-        return "Approver{" +
-                "approverNo='" + approverNo + '\'' +
-                ", approvalNo='" + approvalNo + '\'' +
-                ", approverOrder=" + approverOrder +
-                ", approverStatus='" + approverStatus + '\'' +
-                ", approverDate=" + approverDate +
-                ", memberId=" + memberId +
-                '}';
+    public void reject() {
+        if (!approverStatus.canTransitionTo(ApproverStatus.REJECTED)) {
+            throw new BusinessException(ErrorCode.APPROVER_INVALID_STATUS_TRANSITION);
+        }
+        this.approverStatus = ApproverStatus.REJECTED;
+        this.approverDate = LocalDateTime.now();
     }
 }

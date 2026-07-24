@@ -127,7 +127,9 @@ public class ApprovalController {
 
 
         log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉회수 컨트롤러 들어왔어");
-        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "전자 결재 회수 성공", approvalService.updateApprovalStatus(approvalNo)));
+        // TODO: Stage 7에서 제거
+        int memberId = Integer.parseInt(SecurityContextHolder.getContext().getAuthentication().getName());
+        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "전자 결재 회수 성공", approvalService.updateApprovalStatus(approvalNo, memberId)));
 
     }
 

@@ -1,12 +1,12 @@
 package com.insider.login.approval.service;
 
-import com.insider.login.approval.builder.ApprovalBuilder;
-import com.insider.login.approval.builder.ApproverBuilder;
-import com.insider.login.approval.builder.AttachmentBuilder;
-import com.insider.login.approval.builder.ReferencerBuilder;
 import com.insider.login.approval.dto.*;
 import com.insider.login.approval.entity.*;
+import com.insider.login.approval.enums.ApprovalStatus;
+import com.insider.login.approval.enums.ApproverStatus;
 import com.insider.login.approval.repository.*;
+import com.insider.login.common.error.ErrorCode;
+import com.insider.login.common.error.exception.BusinessException;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -371,7 +371,7 @@ public class ApprovalService {
             }
             //날짜 포맷
 
-            ApproverDTO approverDTO = new ApproverDTO(approverList.get(i).getApproverNo(), approverList.get(i).getApprovalNo(), approverList.get(i).getApproverOrder(), approverList.get(i).getApproverStatus(), approverFormattedDateTime, approverList.get(i).getMemberId(), receiverMember.getName(), receiverPosition.getPositionName(), receiverDepart.getDepartName(), approval.getRejectReason());
+            ApproverDTO approverDTO = new ApproverDTO(approverList.get(i).getApproverNo(), approverList.get(i).getApprovalNo(), approverList.get(i).getApproverOrder(), approverList.get(i).getApproverStatus().name(), approverFormattedDateTime, approverList.get(i).getMemberId(), receiverMember.getName(), receiverPosition.getPositionName(), receiverDepart.getDepartName(), approval.getRejectReason());
 
             approver.add(approverDTO);
 
@@ -403,14 +403,14 @@ public class ApprovalService {
 
         //최종 승인/반려 날짜
         String finalApproverDate = "";
-        if (approval.getApprovalStatus() == "승인" || approval.getApprovalStatus().equals("승인")) {
+        if (approval.getApprovalStatus() == ApprovalStatus.APPROVED) {
             finalApproverDate = approverList.get(approverList.size() - 1).getApproverDate().format(formatter);
-        } else if (approval.getApprovalStatus() == "반려" || approval.getApprovalStatus().equals("반려")) {
+        } else if (approval.getApprovalStatus() == ApprovalStatus.REJECTED) {
             Optional<Approver> approverInfo = approverRepository.findByApprovalNoAndApprovalStatus(approvalNo, "반려"); //상태가 반려인 사람의 처리날짜
 
             finalApproverDate = approverInfo.map(Approver::getApproverDate).orElse(null).format(formatter);
 
-        } else if (approval.getApprovalStatus() == "임시저장" || approval.getApprovalStatus().equals("임시저장")){
+        } else if (approval.getApprovalStatus() == ApprovalStatus.TEMP_SAVED){
             finalApproverDate = approval.getApprovalDate().format(formatter);
         }
         log.info("마지막 " + approval.getApprovalStatus() + " 날짜 :  " + finalApproverDate);
@@ -428,7 +428,7 @@ public class ApprovalService {
             standByMemberName = standByMember.getName();
         }
 
-        ApprovalDTO approvalDTO = new ApprovalDTO(approval.getApprovalNo(), approval.getMemberId(), approval.getApprovalTitle(), approval.getApprovalContent(), approvalFormattedDateTime, approval.getApprovalStatus(), approval.getRejectReason(), approval.getFormNo(), form.getFormName(), senderDepart.getDepartName(), senderMember.getName(), senderPosition.getPositionName(), attachment, approver, referencer, finalApproverDate, standByMemberName);
+        ApprovalDTO approvalDTO = new ApprovalDTO(approval.getApprovalNo(), approval.getMemberId(), approval.getApprovalTitle(), approval.getApprovalContent(), approvalFormattedDateTime, approval.getApprovalStatus().name(), approval.getRejectReason(), approval.getFormNo(), form.getFormName(), senderDepart.getDepartName(), senderMember.getName(), senderPosition.getPositionName(), attachment, approver, referencer, finalApproverDate, standByMemberName);
 
 
         return approvalDTO;
@@ -456,20 +456,12 @@ public class ApprovalService {
             //기존 approval 삭제
             approvalRepository.delete(existingApproval);
 
-            ApprovalBuilder approvalBuilder = new ApprovalBuilder(existingApproval)
-                    .approvalNo(approvalDTO.getApprovalNo())
-                    .approvalTitle(approvalDTO.getApprovalTitle())
-                    .approvalContent(approvalDTO.getApprovalContent())
-                    .approvalDate(now())
-                    .approvalStatus(approvalDTO.getApprovalStatus())
-                    .formNo(approvalDTO.getFormNo());
-
-
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
 
             // Approval 수정
-            Approval updateApproval = approvalBuilder.builder();
+            // TODO: Stage 6에서 제거
+            Approval updateApproval = new Approval(approvalDTO.getApprovalNo(), existingApproval.getMemberId(), approvalDTO.getApprovalTitle(), approvalDTO.getApprovalContent(), now(), approvalDTO.getApprovalStatus(), existingApproval.getRejectReason(), approvalDTO.getFormNo());
             approvalRepository.save(updateApproval);
 
             // Approver 수정
@@ -632,29 +624,14 @@ public class ApprovalService {
 
     //전자결재 회수
     @Transactional
-    public ApprovalDTO updateApprovalStatus(String approvalNo) {
+    public ApprovalDTO updateApprovalStatus(String approvalNo, int memberId) {
         //***** 나를 제외한 다른 사람이 한사람이라도 처리했을 경우 회수 불가능
 
-        //수정하고자 하는 전자결재 정보 조회
-        ApprovalDTO approvalDTO = selectApproval(approvalNo);
-
-        log.info("***** 날짜 확인 ***** " + approvalDTO.getApprovalDate());
-
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        LocalDateTime parsedDateTime = LocalDateTime.parse(approvalDTO.getApprovalDate(), formatter);
-
-        Approval approval = new Approval(approvalDTO.getApprovalNo(), approvalDTO.getMemberId(), approvalDTO.getApprovalTitle(), approvalDTO.getApprovalContent(), parsedDateTime, approvalDTO.getApprovalStatus(), approvalDTO.getRejectReason(), approvalDTO.getFormNo());
-
-        //상태 update
-        approval = new ApprovalBuilder(approval).approvalStatus("회수").builder();
-
-        //db update
-        approvalRepository.save(approval);
-
-        //DTO도 변경
-        approvalDTO.setApprovalStatus(approval.getApprovalStatus());
-
-        return approvalDTO;
+        // TODO: Stage 6에서 제거
+        Approval approval = approvalRepository.findById(approvalNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.APPROVAL_NOT_FOUND));
+        approval.withdraw(memberId);
+        return selectApproval(approvalNo);
     }
 
 
@@ -693,8 +670,9 @@ public class ApprovalService {
 
                 String rejectReason = statusMap.get("rejectReason");
 
-                //결재자 처리 상태 update
-                approver = new ApproverBuilder(approver).approverStatus(status).builder();
+                ApproverStatus nextStatus = ApproverStatus.from(status);
+                if (nextStatus == ApproverStatus.APPROVED) approver.approve();
+                else if (nextStatus == ApproverStatus.REJECTED) approver.reject();
 
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 LocalDateTime parsedDateTime = LocalDateTime.parse(approvalDTO.getApprovalDate(), formatter);
@@ -702,24 +680,26 @@ public class ApprovalService {
 
                 status:
                 switch (status) {
-                    case "승인": {
+                    case "승인", "APPROVED": {
                         if (i == approverList.size() - 1) {
                             //마지막 순서일 경우
 
                             //전자결재 처리상태 변경 (승인)
-                            approval = new ApprovalBuilder(approval).approvalStatus(status).builder();
+                            // TODO: Stage 6에서 제거
+                            approval.markAsApproved();
                         }
                         break status;
                     }
-                    case "반려": {
-                        approval = new ApprovalBuilder(approval).approvalStatus(status).rejectReason(rejectReason).builder();
+                    case "반려", "REJECTED": {
+                        // TODO: Stage 6에서 제거
+                        approval.markAsRejected(rejectReason);
 
                         break status;
                     }
                 }
                 //db 결재자 update
                 approverRepository.save(approver);
-                approverDTO.setApproverStatus(status);
+                approverDTO.setApproverStatus(nextStatus.name());
                 log.info("*****상태 : " + approverDTO.getApproverStatus());
 
                 //db 결재정보 update

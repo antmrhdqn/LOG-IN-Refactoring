@@ -37,6 +37,17 @@ public enum ErrorCode {
     LEAVE_CANCEL_AFTER_START(400, "L009", "이미 시작된 휴가는 취소할 수 없습니다."),
     LEAVE_ALREADY_FINISHED(400, "L010", "이미 종결된 신청 건입니다."),
 
+    // 전자결재(Approval) 관련 에러
+    APPROVAL_NOT_FOUND(404, "AP001", "해당 결재를 찾을 수 없습니다."),
+    APPROVAL_INVALID_STATUS_TRANSITION(400, "AP002", "현재 상태에서는 해당 처리를 할 수 없습니다."),
+    APPROVAL_UNAUTHORIZED(403, "AP003", "해당 결재에 대한 권한이 없습니다."),
+    APPROVER_NOT_FOUND(404, "AP004", "해당 결재자를 찾을 수 없습니다."),
+    APPROVER_INVALID_STATUS_TRANSITION(400, "AP005", "현재 상태에서는 해당 결재자 처리를 할 수 없습니다."),
+    APPROVAL_FILE_UPLOAD_FAILED(500, "AP006", "결재 파일 업로드에 실패했습니다."),
+    APPROVAL_FILE_NOT_FOUND(404, "AP007", "해당 결재 파일을 찾을 수 없습니다."),
+    APPROVAL_WITHDRAW_NOT_OWNER(403, "AP008", "기안자 본인만 결재를 회수할 수 있습니다."),
+    APPROVAL_WITHDRAW_ALREADY_PROCESSED(400, "AP009", "이미 처리된 결재는 회수할 수 없습니다."),
+
     // 일정(Calendar) 관련 에러
     CALENDAR_NOT_FOUND(404, "CA01", "해당 일정을 찾을 수 없습니다."),
     CALENDAR_ACCESS_DENIED(403, "CA02", "해당 일정을 수정/삭제할 권한이 없습니다."),
