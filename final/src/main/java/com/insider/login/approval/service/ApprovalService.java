@@ -5,22 +5,17 @@ import com.insider.login.approval.entity.*;
 import com.insider.login.approval.enums.ApprovalStatus;
 import com.insider.login.approval.enums.ApproverStatus;
 import com.insider.login.approval.repository.*;
+import com.insider.login.approval.service.file.ApprovalFileService;
 import com.insider.login.common.error.ErrorCode;
 import com.insider.login.common.error.exception.BusinessException;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Date;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -34,12 +29,6 @@ import static java.util.Objects.isNull;
 @Slf4j
 public class ApprovalService {
 
-    @Value("${file.upload-dir}")
-    private String UPLOAD_DIR;
-
-    @Value("${file.file-dir}")
-    private String FILE_DIR;
-
     private ApprovalRepository approvalRepository;
     private ApproverRepository approverRepository;
     private AttachmentRepository attachmentRepository;
@@ -50,6 +39,8 @@ public class ApprovalService {
     private ApprovalPositionRepository approvalPositionRepository;
 
     private FormRepository formRepository;
+
+    private final ApprovalFileService approvalFileService;
 
     private final ModelMapper modelMapper;
 
@@ -64,6 +55,7 @@ public class ApprovalService {
             ApprovalPositionRepository approvalPositionRepository,
 
             FormRepository formRepository,
+            ApprovalFileService approvalFileService,
             ModelMapper modelMapper) {
         this.approvalRepository = approvalRepository2;
         this.approverRepository = approverRepository;
@@ -73,6 +65,7 @@ public class ApprovalService {
         this.approvalDepartmentRepository = approvalDepartmentRepository;
         this.approvalPositionRepository = approvalPositionRepository;
         this.formRepository = formRepository;
+        this.approvalFileService = approvalFileService;
         this.modelMapper = modelMapper;
     }
 
@@ -178,87 +171,12 @@ public class ApprovalService {
             referencerRepository.save(referencer);
         }
 
-        // 파일 꺼내기
-
-        List<AttachmentDTO> attachmentList = approvalDTO.getAttachment();
-
-//        String savePath = UPLOAD_DIR + FILE_DIR;
-
-        List<Map<String, String>> fileList = new ArrayList<>();
+        // 파일 꺼내기 (디스크 저장 + 첨부 DB 저장은 ApprovalFileService 가 소유)
 
         log.info("첨부파일 비어있음? " + (files == null || files.isEmpty()));
 
-        if (files != null && !files.isEmpty()) {
-            try {
-                String savedName = "";
-                String ext = "";
-                String savePath = UPLOAD_DIR + FILE_DIR;
-
-                for (int i = 0; i < files.size(); i++) {
-                    log.info("첨부파일 뭔데 : " + i + " : " + files.get(i));
-                    MultipartFile file = files.get(i);
-
-                    AttachmentDTO attachmentDTO = approvalDTO.getAttachment().get(i);
-                    ext = attachmentDTO.getFileOriname().substring(attachmentDTO.getFileOriname().lastIndexOf("."));
-                    savedName = UUID.randomUUID().toString().replace("-", "") + ext;
-                    //파일저장명 암호화
-
-                    Map<String, String> fileMap = new HashMap<>();
-
-                    fileMap.put("originFileName", file.getOriginalFilename());
-                    fileMap.put("savedFileName", savedName);
-                    fileMap.put("savePath", savePath);
-
-                    attachmentDTO.setFileSavename(savedName);
-
-                    Path uploadPath = Paths.get(savePath);
-                    log.info("savePath : " + savePath);
-
-                    if (!Files.exists(uploadPath)) {
-                        Files.createDirectories(uploadPath);
-                    }
-                    //파일저장경로 없으면 만들어주기
-
-                    Path filePath = uploadPath.resolve(savedName);
-
-                    //**파일 경로에 저장
-                    try {
-                        Files.copy(file.getInputStream(), filePath);
-                        log.info("파일 저장 됐어 : " + filePath);
-                    } catch (Exception e) {
-                        log.info("파일 저장 안됐어");
-                    }
-
-
-                    fileList.add(fileMap);
-
-
-                    Attachment attachment = modelMapper.map(attachmentDTO, Attachment.class);
-
-                    //** 첨부파일정보 DB에 저장
-                    attachmentRepository.save(attachment);
-
-                }
-                result = 1;
-
-            } catch (IOException e) {
-                //무슨 에러가 발생해도 파일 지워주기
-                e.printStackTrace();
-
-                try {
-
-                    deleteFile(fileList);
-                    log.info("파일 지워졌대요 ");
-
-                } catch (IOException ex) {
-                    e.printStackTrace();
-                }
-            }
-
-
-        } else {
-            result = 1;
-        }
+        approvalDTO.setAttachment(approvalFileService.store(approvalDTO.getApprovalNo(), files));
+        result = 1;
 
         return (result > 0) ? selectApproval(approvalDTO.getApprovalNo()) : null;
     }
@@ -506,104 +424,13 @@ public class ApprovalService {
             // 첨부파일 수정
 
 
-            // 기존 파일 불러오기
-            List<Attachment> existingAttachments = attachmentRepository.findByApprovalNo(approvalNo);
-            // 파일 꺼내기
-            List<AttachmentDTO> attachmentList = approvalDTO.getAttachment();
             //기존 첨부파일 삭제
-            List<Map<String, String>> existingAttachmentList = new ArrayList<>();
-            Map<String, String> existingAttachmentMap = new HashMap<>();
-
-            for (Attachment existingAttachment : existingAttachments) {
-                existingAttachmentMap.put("saveFilename", existingAttachment.getFileSavename());
-                existingAttachmentList.add(existingAttachmentMap);
-//                attachmentRepository.delete(existingAttachment);
-            }
-
-            try {
-                deleteFile(existingAttachmentList);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-
-//        String savePath = UPLOAD_DIR + FILE_DIR;
-
-            List<Map<String, String>> fileList = new ArrayList<>();
+            approvalFileService.deleteByApprovalNo(approvalNo);
 
             log.info("첨부파일 비어있음? " + (files == null || files.isEmpty()));
 
-            if (files != null && !files.isEmpty()) {
-                try {
-                    String savedName = "";
-                    String ext = "";
-                    String savePath = UPLOAD_DIR + FILE_DIR;
-
-                    for (int i = 0; i < files.size(); i++) {
-                        log.info("첨부파일 뭔데 : " + i + " : " + files.get(i));
-                        MultipartFile file = files.get(i);
-
-                        AttachmentDTO attachmentDTO = approvalDTO.getAttachment().get(i);
-                        ext = attachmentDTO.getFileOriname().substring(attachmentDTO.getFileOriname().lastIndexOf("."));
-                        savedName = UUID.randomUUID().toString().replace("-", "") + ext;
-                        //파일저장명 암호화
-
-                        Map<String, String> fileMap = new HashMap<>();
-
-                        fileMap.put("originFileName", file.getOriginalFilename());
-                        fileMap.put("savedFileName", savedName);
-                        fileMap.put("savePath", savePath);
-
-                        attachmentDTO.setFileSavename(savedName);
-
-                        Path uploadPath = Paths.get(savePath);
-                        log.info("savePath : " + savePath);
-
-                        if (!Files.exists(uploadPath)) {
-                            Files.createDirectories(uploadPath);
-                        }
-                        //파일저장경로 없으면 만들어주기
-
-                        Path filePath = uploadPath.resolve(savedName);
-
-                        //**파일 경로에 저장
-                        try {
-                            Files.copy(file.getInputStream(), filePath);
-                            log.info("파일 저장 됐어 : " + filePath);
-                        } catch (Exception e) {
-                            log.info("파일 저장 안됐어");
-                            throw new IOException("파일 저장 실패", e);
-                        }
-
-                        fileList.add(fileMap);
-
-
-                        Attachment attachment = modelMapper.map(attachmentDTO, Attachment.class);
-
-                        //** 첨부파일정보 DB에 저장
-                        attachmentRepository.save(attachment);
-
-                    }
-
-
-                    result = 1;
-
-                } catch (IOException e) {
-                    //무슨 에러가 발생해도 파일 지워주기
-                    e.printStackTrace();
-
-                    try {
-                        deleteFile(fileList);
-                        log.info("파일 지워졌대요 ");
-
-                    } catch (IOException ex) {
-                        e.printStackTrace();
-                    }
-                }
-
-            }else {
-                result = 1;
-            }
+            approvalDTO.setAttachment(approvalFileService.store(approvalDTO.getApprovalNo(), files));
+            result = 1;
         }
 
 
@@ -875,15 +702,8 @@ public class ApprovalService {
         try {
 
             List<Attachment> attachmentList = attachmentRepository.findByApprovalNo(approvalNo);
-            List<Map<String, String>> fileList = new ArrayList<>();
-            Map<String, String> attachMap = new HashMap<>();
 
-            for (Attachment attachment : attachmentList) {
-                attachMap.put("savedFileName", attachment.getFileSavename());
-                fileList.add(attachMap);
-            }
-
-            deleteFile(fileList);                           //첨부파일 삭제
+            approvalFileService.deleteByApprovalNo(approvalNo);      //첨부파일 삭제
 
             if (!attachmentList.isEmpty()) {
                 try {
@@ -913,42 +733,11 @@ public class ApprovalService {
             }
 
             return true;
-        } catch (IOException e) {
-            e.printStackTrace();
-            log.info("파일 삭제 실패");
-            return false;
-
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
 
-    }
-
-    //파일 삭제
-    public void deleteFile(List<Map<String, String>> fileList) throws IOException {
-        String savePath = UPLOAD_DIR + FILE_DIR;
-
-        List<String> failedFiles = new ArrayList<>();
-
-        for (int i = 0; i < fileList.size(); i++) {
-            Map<String, String> file = fileList.get(i);
-            String savedFileName = file.get("savedFileName");
-
-            File deleteFile = new File(savePath + "/" + savedFileName);
-
-
-            boolean isDeleted = deleteFile.delete();
-
-            if (!isDeleted) {
-                failedFiles.add(savedFileName);
-            }
-        }
-
-       /* if(!failedFiles.isEmpty()){
-
-            throw new IOException("Failed to delete files : " + failedFiles.toString());
-        }*/
     }
 
 

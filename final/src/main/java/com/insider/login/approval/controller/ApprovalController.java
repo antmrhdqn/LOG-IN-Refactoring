@@ -2,12 +2,11 @@ package com.insider.login.approval.controller;
 
 import com.insider.login.approval.dto.*;
 import com.insider.login.approval.service.ApprovalService;
+import com.insider.login.approval.service.file.ApprovalFileService;
 import com.insider.login.common.response.ResponseMessage;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -17,11 +16,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -30,19 +24,13 @@ import java.util.*;
 @Slf4j
 public class ApprovalController {
 
-
-    @Value("${file.upload-dir}")
-    private String UPLOAD_DIR;
-
-    @Value("${file.file-dir}")
-    private String FILE_DIR;
-
-    private final Path fileStorageLocation = Paths.get(UPLOAD_DIR + FILE_DIR).toAbsolutePath();
-
     private final ApprovalService approvalService;
 
-    public ApprovalController(ApprovalService approvalService) {
+    private final ApprovalFileService approvalFileService;
+
+    public ApprovalController(ApprovalService approvalService, ApprovalFileService approvalFileService) {
         this.approvalService = approvalService;
+        this.approvalFileService = approvalFileService;
     }
 
 
@@ -185,31 +173,6 @@ public class ApprovalController {
         }
         approvalDTO.setReferencer(referencerDTOList);
 
-        List<AttachmentDTO> attachmentDTOList = new ArrayList<>();
-
-        String savePath = UPLOAD_DIR + FILE_DIR;
-
-        //첨부파일번호(결재번호+_f+순번)
-//        if(multipartFile == null){
-//            multipartFile = Collections.emptyList();
-//        }
-
-        if (multipartFile != null && !multipartFile.isEmpty()) {
-            log.info("multipartFile 있나요 : " + !multipartFile.isEmpty());
-            for (int i = 0; i < multipartFile.size(); i++) {
-                MultipartFile oneFile = multipartFile.get(i);
-
-                AttachmentDTO attachmentDTO = new AttachmentDTO();
-                attachmentDTO.setFileNo(approvalDTO.getApprovalNo() + "_f" + String.format("%03d", (i + 1)));
-                attachmentDTO.setFileOriname(oneFile.getOriginalFilename());
-                attachmentDTO.setFileSavename(oneFile.getName());
-                attachmentDTO.setFileSavepath(savePath);
-                attachmentDTO.setApprovalNo(approvalDTO.getApprovalNo());
-
-                attachmentDTOList.add(attachmentDTO);
-            }
-            approvalDTO.setAttachment(attachmentDTOList);
-        }
         ApprovalDTO result = approvalService.updateApproval(approvalNo, approvalDTO, multipartFile);
         log.info("결재 임시저장 수정 결과 성공: " + result);
         return ResponseEntity.ok(ResponseMessage.success("결재 임시저장 수정 결과 성공", result));
@@ -330,31 +293,6 @@ public class ApprovalController {
         }
         approvalDTO.setReferencer(referencerDTOList);
 
-        List<AttachmentDTO> attachmentDTOList = new ArrayList<>();
-
-        String savePath = UPLOAD_DIR + FILE_DIR;
-
-        //첨부파일번호(결재번호+_f+순번)
-//        if(multipartFile == null){
-//            multipartFile = Collections.emptyList();
-//        }
-
-        if (multipartFile != null && !multipartFile.isEmpty()) {
-            log.info("multipartFile 있나요 : " + !multipartFile.isEmpty());
-            for (int i = 0; i < multipartFile.size(); i++) {
-                MultipartFile oneFile = multipartFile.get(i);
-
-                AttachmentDTO attachmentDTO = new AttachmentDTO();
-                attachmentDTO.setFileNo(approvalNo + "_f" + String.format("%03d", (i + 1)));
-                attachmentDTO.setFileOriname(oneFile.getOriginalFilename());
-                attachmentDTO.setFileSavename(oneFile.getName());
-                attachmentDTO.setFileSavepath(savePath);
-                attachmentDTO.setApprovalNo(approvalNo);
-
-                attachmentDTOList.add(attachmentDTO);
-            }
-            approvalDTO.setAttachment(attachmentDTOList);
-        }
         ApprovalDTO result = approvalService.insertApproval(approvalDTO, multipartFile);
         log.info("결재 기안 결과 성공: " + result);
         return ResponseEntity.ok(ResponseMessage.success("전자결재 기안 성공", result));
@@ -408,48 +346,18 @@ public class ApprovalController {
                                                  @RequestParam(name = "fileOriname") String fileOriname){
 
         System.out.println("🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈파일 컨트롤러 들어왔어🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈");
-        try{
 
-            System.out.println("fileSavepath : " + fileSavepath +", fileSavename : " + fileSavename + ", fileOriname :" + fileOriname);
-            Path filePath = Paths.get(fileSavepath).resolve(fileSavename).normalize();
-            System.out.println("filePath: " + filePath);
-            Resource resource = new UrlResource(filePath.toUri());
+        //fileSavepath 는 요청 형태 유지를 위해 받기만 하고 사용하지 않는다(베이스 경로는 파일 서비스가 소유)
+        ApprovalFileService.FileDownload fileDownload = approvalFileService.loadAsResource(fileSavename, fileOriname);
 
-            if(resource.exists()){
-                //파일의 MIME 타입을 감지
-                String contentType = Files.probeContentType(filePath);
+        //HttpHeaders 설정
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileDownload.encodedFileName() + "\"");
+        headers.add(HttpHeaders.CONTENT_TYPE, fileDownload.contentType());
 
-                System.out.println("파일 타입 : " + contentType);
-
-                if(contentType == null){
-                    contentType = "application/octet-stream";
-                }
-
-                //파일 이름 인코딩
-                String encodedFileName = URLEncoder.encode(fileOriname, "UTF-8").replaceAll("\\+", "%20");
-
-                //HttpHeaders 설정
-                HttpHeaders headers = new HttpHeaders();
-                headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"");
-                headers.add(HttpHeaders.CONTENT_TYPE, contentType);
-
-
-
-                return ResponseEntity.ok()
-                        .headers(headers)
-                        .contentType(MediaType.parseMediaType(contentType))
-                        .body(resource);
-            }else{
-                System.out.println("파일이 존재하지 않습니다.");
-                return ResponseEntity.notFound().build();
-            }
-        }catch(UnsupportedEncodingException e){
-            System.out.println("파일 이름 인코딩 중 오류 발생 : " + e.getMessage());
-            return ResponseEntity.badRequest().build();
-
-        }catch(Exception e){
-            System.out.println("파일 다운로드 중 오류 발생: " + e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        return ResponseEntity.ok()
+                .headers(headers)
+                .contentType(MediaType.parseMediaType(fileDownload.contentType()))
+                .body(fileDownload.resource());
     }
 }
