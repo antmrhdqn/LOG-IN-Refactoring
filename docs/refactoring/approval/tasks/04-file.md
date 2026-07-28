@@ -131,8 +131,11 @@ approval/service/file/ApprovalFileService.java   (@Component)
    소유하고, `store()` **내부** 실패 시 이번 호출에서 쓴 파일을 보상 삭제 후 AP006 전파(현 `deleteFile(fileList)` 로직 계승).
    `store()` 반환 **이후** 바깥 tx 롤백으로 생기는 orphan은 **단계 6**(tx synchronization)로 이월 — Stage 4는 여기까지.
    트랜잭션 경계 재설계(REQUIRES_NEW, afterCompletion 훅 등)는 **하지 않는다**.
-7. **삭제 실패 로깅 추적성(C-2)**: F5 비치명 삭제 실패는 후속 정리가 긁어갈 수 있게 **고정 접두어**를 포함해 WARN 로깅한다.
-   접두어(예: `[APPROVAL_FILE_ORPHAN]`)로 파일명·경로를 남긴다. (단순 "삭제 실패" 로그로 뭉개지 않는다.)
+8. **F6 실효 범위 (updateApproval ↔ [C] 경계)**: F6(map 재사용) 수정이 실제로 효과를 내는 곳은 **`approvalDelete`**뿐이다
+   (L877에서 savename 선확보 후 DB 삭제 → 첨부 전부 삭제됨). **`updateApproval`은 L442에서 첨부 DB 행을 먼저 지운 뒤
+   L510에서 목록을 만들어(이미 빈 리스트) 옛 파일이 원래부터 안 지워진다** — 이 무효화의 근원은 삭제-후-재생성([C]) 순서로
+   **단계 6 소관**. 따라서 Stage 4는 `updateApproval`의 파일 delete를 **재정렬하지 않고**(현행 orphan 동작 보존) 파일 서비스
+   호출로만 치환하며, 이 잔존 orphan을 **보고서에 명시**한다. F6의 실질 수정 대상은 `approvalDelete`.
 5. leave-pattern 준수: 컴포넌트는 `@Component` + 생성자 주입, 상속 금지, `@Value`는 파일 서비스가 단독 보유.
 6. **첨부파일번호(`_f%03d`) 채번 = Stage 4/5 경계**: plan §7상 첨부파일번호 채번은 **Stage 5 `ApprovalNoGenerator`
    소관**이다. Stage 4는 F1 컨트롤러 루프를 걷어내면서 이 채번을 **`ApprovalFileService.store()` 내부에 임시로**
