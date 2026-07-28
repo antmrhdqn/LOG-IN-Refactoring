@@ -2,6 +2,7 @@ package com.insider.login.approval.controller;
 
 import com.insider.login.approval.dto.*;
 import com.insider.login.approval.service.ApprovalService;
+import com.insider.login.common.response.ResponseMessage;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,7 +10,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -48,35 +48,35 @@ public class ApprovalController {
 
     @Tag(name = "폼 목록 조회", description = "폼 목록 조회")
     @GetMapping("/approvals/forms")
-    public ResponseEntity<ResponseDTO> selectFormList() {
+    public ResponseEntity<ResponseMessage<List<FormDTO>>> selectFormList() {
 
         log.info("폼 목록 조회 controller 들어왔다");
 
-        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "폼 목록 조회 성공", approvalService.selectFormList()));
+        return ResponseEntity.ok(ResponseMessage.success("폼 목록 조회 성공", approvalService.selectFormList()));
     }
 
     @Tag(name = "특정 폼 조회", description = "특정 폼 조회")
     @GetMapping("/approvals/forms/{formNo}")
-    public ResponseEntity<ResponseDTO> selectForm(@PathVariable(name = "formNo") String formNo) {
+    public ResponseEntity<ResponseMessage<FormDTO>> selectForm(@PathVariable(name = "formNo") String formNo) {
 
-        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "특정 폼 조회 성공", approvalService.selectForm(formNo)));
+        return ResponseEntity.ok(ResponseMessage.success("특정 폼 조회 성공", approvalService.selectForm(formNo)));
     }
 
 
     //전자결재 상세 조회
     @Tag(name = "전자결재 상세 조회", description = "전자결재 상세 조회")
     @GetMapping("/approvals/{approvalNo}")
-    public ResponseEntity<ResponseDTO> selectApprovalByNo(@PathVariable(name = "approvalNo") String approvalNo) {
+    public ResponseEntity<ResponseMessage<ApprovalDTO>> selectApprovalByNo(@PathVariable(name = "approvalNo") String approvalNo) {
        /* ApprovalDTO approvalDTO = approvalService.selectApproval(approvalNo);
         log.info("approvalDTO: " + approvalDTO);*/
 
-        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "전자결재 상세 조회 성공", approvalService.selectApproval(approvalNo)));
+        return ResponseEntity.ok(ResponseMessage.success("전자결재 상세 조회 성공", approvalService.selectApproval(approvalNo)));
 
     }
 
     @Tag(name = "전자결재 목록 조회", description = "전자결재 목록 조회")
     @GetMapping("/approvals")
-    public ResponseEntity<ResponseDTO> selectApprovalList(@RequestParam("fg") String fg,
+    public ResponseEntity<ResponseMessage<Page<ApprovalDTO>>> selectApprovalList(@RequestParam("fg") String fg,
                                                           @RequestParam(name = "page", defaultValue = "0") String page,
                                                           @RequestParam(name = "title", defaultValue = "") String title,
                                                           @RequestParam(name = "direction", defaultValue = "DESC") String direction,
@@ -114,28 +114,27 @@ public class ApprovalController {
         System.out.println("🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈Page 총 페이지 controller : " + approvalDTOPage.getTotalPages());
 //        log.info("approvalDTOPage : " + approvalDTOPage.getContent());
 
-        ResponseDTO response = new ResponseDTO(HttpStatus.OK, "상신 목록 조회 성공", approvalDTOPage);
         System.out.println("조회성공");
-        return ResponseEntity.ok().body(response);
+        return ResponseEntity.ok(ResponseMessage.success("상신 목록 조회 성공", approvalDTOPage));
 
     }
 
 
     @Tag(name = "전자결재 회수", description = "회수")
     @PutMapping(value = "/approvals/{approvalNo}/status")
-    public ResponseEntity<ResponseDTO> updateApprovalstatus(@PathVariable(name = "approvalNo") String approvalNo) {
+    public ResponseEntity<ResponseMessage<ApprovalDTO>> updateApprovalstatus(@PathVariable(name = "approvalNo") String approvalNo) {
 
 
         log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉회수 컨트롤러 들어왔어");
         // TODO: Stage 7에서 제거
         int memberId = Integer.parseInt(SecurityContextHolder.getContext().getAuthentication().getName());
-        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "전자 결재 회수 성공", approvalService.updateApprovalStatus(approvalNo, memberId)));
+        return ResponseEntity.ok(ResponseMessage.success("전자 결재 회수 성공", approvalService.updateApprovalStatus(approvalNo, memberId)));
 
     }
 
     @Tag(name = "전자결재 재 임시저장", description = "재 임시저장")
     @PutMapping(value = "/approvals/{approvalNo}")
-    public ResponseEntity<ResponseDTO> updateApprovalTemp(@PathVariable(name = "approvalNo") String approvalNo,
+    public ResponseEntity<ResponseMessage<ApprovalDTO>> updateApprovalTemp(@PathVariable(name = "approvalNo") String approvalNo,
                                                           @RequestPart(name = "approvalDTO") ApprovalDTO approvalDTO,
                                                           @RequestPart(name = "multipartFile", required = false) List<MultipartFile> multipartFile) {
 
@@ -211,23 +210,15 @@ public class ApprovalController {
             }
             approvalDTO.setAttachment(attachmentDTOList);
         }
-        ApprovalDTO result = null;
-
-        try {
-            result = approvalService.updateApproval(approvalNo, approvalDTO, multipartFile);
-            log.info("결재 임시저장 수정 결과 성공: " + result);
-            return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "결재 임시저장 수정 결과 성공", result));
-
-        } catch (Exception e) {
-            log.info("결재 임시저장 수정 결과 실패 : " + result);
-            return ResponseEntity.badRequest().body(new ResponseDTO(HttpStatus.OK, e.getMessage(), result));
-        }
+        ApprovalDTO result = approvalService.updateApproval(approvalNo, approvalDTO, multipartFile);
+        log.info("결재 임시저장 수정 결과 성공: " + result);
+        return ResponseEntity.ok(ResponseMessage.success("결재 임시저장 수정 결과 성공", result));
 
     }
 
     @Tag(name = "전자결재 기안", description = "기안")
     @PostMapping("/approvals")
-    public ResponseEntity<ResponseDTO> insertApproval(@RequestPart("approvalDTO") ApprovalDTO approvalDTO,
+    public ResponseEntity<ResponseMessage<ApprovalDTO>> insertApproval(@RequestPart("approvalDTO") ApprovalDTO approvalDTO,
                                                       @RequestPart(value = "multipartFile", required = false) List<MultipartFile> multipartFile,
                                                       @RequestHeader(name = "memberId", required = false) String memberIdstr) {
 
@@ -364,23 +355,15 @@ public class ApprovalController {
             }
             approvalDTO.setAttachment(attachmentDTOList);
         }
-        ApprovalDTO result = null;
-
-        try {
-            result = approvalService.insertApproval(approvalDTO, multipartFile);
-            log.info("결재 기안 결과 성공: " + result);
-            return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "전자결재 기안 성공", result));
-
-        } catch (Exception e) {
-            log.info("결재 기안 결과 실패 : " + result);
-            return ResponseEntity.badRequest().body(new ResponseDTO(HttpStatus.OK, e.getMessage(), result));
-        }
+        ApprovalDTO result = approvalService.insertApproval(approvalDTO, multipartFile);
+        log.info("결재 기안 결과 성공: " + result);
+        return ResponseEntity.ok(ResponseMessage.success("전자결재 기안 성공", result));
 
     }
 
     @Tag(name = "전자결재 처리", description = "결재처리")
     @PutMapping("/approvers/{approverNo}")
-    public ResponseEntity<ResponseDTO> updateApprover(@PathVariable(name = "approverNo") String approverNo,
+    public ResponseEntity<ResponseMessage<ApproverDTO>> updateApprover(@PathVariable(name = "approverNo") String approverNo,
                                                       @RequestBody ApproverDTO approverDTO) {
 
 
@@ -390,29 +373,29 @@ public class ApprovalController {
         statusMap.put("approverStatus", approverDTO.getApproverStatus());
         statusMap.put("rejectReason", approverDTO.getRejectReason());
 
-        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "전자결재" + approverDTO.getApproverStatus() + "처리 완료",
+        return ResponseEntity.ok(ResponseMessage.success("전자결재" + approverDTO.getApproverStatus() + "처리 완료",
                 approvalService.updateApprover(approverNo, statusMap)));
     }
 
     @Tag(name = "전자결재 삭제", description = "전자결재 임시저장 삭제")
     @DeleteMapping("/approvals/{approvalNo}")
-    public ResponseEntity<ResponseDTO> deleteApproval(@PathVariable(name = "approvalNo") String approvalNo) {
+    public ResponseEntity<ResponseMessage<Boolean>> deleteApproval(@PathVariable(name = "approvalNo") String approvalNo) {
 
-        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "전자결재 삭제 성공",
+        return ResponseEntity.ok(ResponseMessage.success("전자결재 삭제 성공",
                 approvalService.approvalDelete(approvalNo)));
     }
 
 
     @GetMapping("/approvals/members/{memberId}")
-    public ResponseEntity<ResponseDTO> selectMember(@PathVariable(name = "memberId") int memberId) {
+    public ResponseEntity<ResponseMessage<MemberDTO>> selectMember(@PathVariable(name = "memberId") int memberId) {
 
-        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "사원 조회 성공",
+        return ResponseEntity.ok(ResponseMessage.success("사원 조회 성공",
                 approvalService.selectMember(memberId)));
     }
 
     @GetMapping("/approvals/members")
-    public ResponseEntity<ResponseDTO> selectAllMembers() {
-        return ResponseEntity.ok().body(new ResponseDTO(HttpStatus.OK, "전 사원 부서순 조회 성공",
+    public ResponseEntity<ResponseMessage<List<MemberDTO>>> selectAllMembers() {
+        return ResponseEntity.ok(ResponseMessage.success("전 사원 부서순 조회 성공",
                 approvalService.selectAllMemberList()));
 
 
