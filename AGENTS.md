@@ -19,15 +19,15 @@
 - 휴가 도메인 패턴: `docs/reference/leave-pattern.md` (결재가 따를 레퍼런스)
 
 ### 현재 진행 단계
-**단계 2: DTO 정리** — `docs/refactoring/approval/tasks/02-dto.md`
-(단계 1 Entity 리팩토링 완료·커밋, 단계 1.5 Repository JPQL 정합 완료·커밋·푸시)
+**단계 3: 공통 응답 체계 통합** — `docs/refactoring/approval/tasks/03-response.md`
+(단계 1 Entity·1.5 Repository JPQL·2 DTO 정리 완료·커밋·푸시)
 
 ### 단계 로드맵
 ```
 1. Entity 리팩토링 ✅
 1.5. Repository 상태 리터럴 정합 ✅
-2. DTO 정리 (현재)
-3. 공통 응답 체계 통합
+2. DTO 정리 ✅
+3. 공통 응답 체계 통합 (현재)
 4. 파일 처리 분리
 5. 결재번호 생성기 분리
 6. God Class 분리 (Command / Query)
