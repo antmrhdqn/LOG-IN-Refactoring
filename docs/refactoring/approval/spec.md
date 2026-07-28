@@ -52,7 +52,7 @@ LOG-IN의 전자결재 기능은 초기 구현 이후 신규 요구사항이 단
 |---|---|---|
 | ApprovalService 라인 수 | 1,066줄 | Command/Query 분리, 각 200~400줄 |
 | ApprovalController 라인 수 | 470줄 | 100~120줄 |
-| 상태값 표현 | 한글 문자열 | Enum 100% |
+| 상태값 표현 | 한글 문자열 | Enum 100% (Repository JPQL 포함) |
 | 응답 체계 | 자체 ResponseDTO | ResponseMessage<T> / ErrorResponse |
 | 상태 전이 검증 | 없음 | Entity 내부 메서드 (canTransitionTo) |
 | 에러 처리 | try-catch + null 반환 | BusinessException 위임 |
@@ -99,6 +99,25 @@ LOG-IN의 전자결재 기능은 초기 구현 이후 신규 요구사항이 단
 → `Approval.withdraw(memberId)` 메서드에서 본인 확인 + 상태 전이 검증 수행
 → "결재자 처리 여부" 검증은 단계 6의 CommandService에서 (Entity가 결재자 컬렉션을
    알 필요 없도록 책임 분리)
+
+### 단계 1.5에서 해결
+**[M] Repository 상태 리터럴 미전환 (JPQL + 네이티브)**: 단계 1에서 Entity의 상태
+필드를 Enum + `@Enumerated(EnumType.STRING)`으로 전환하고 DB 값을 영문 Enum 값으로
+마이그레이션했으나, Repository 계층의 쿼리는 여전히 한글 문자열 리터럴과 비교하고 있다.
+`spec.md`의 문제 A~L은 Service/Controller 계층 분석에서 도출되어 **Repository 계층이
+통째로 누락**되어 있었고, Entity 타입 변경이 Repository로 전파된다는 점이 명세에
+반영되지 않은 결과다.
+
+증상의 성격이 특수하다. JPQL 문자열은 컴파일 시 검증되지 않고 Hibernate 파싱 단계에서도
+거부되지 않으므로, `compileJava`·`bootRun`이 모두 통과한다. 문제는 런타임에만, 그것도
+예외·로그·500 응답 없이 **조용히 0건을 반환**하는 형태로 드러난다(silent failure).
+→ 결재 대기함 조회, 임시저장함 조회/검색/카운트, 반려 처리자 조회가 조용히 죽어 있다.
+
+→ `ApprovalRepository` / `ApproverRepository`의 JPQL 한글 리터럴을 전체 경로 Enum
+   상수 표기로, 네이티브 쿼리 한글 리터럴을 DB 저장 문자열(`'PENDING'`/`'PROCESSING'`)로
+   교체. `findByApprovalNoAndApprovalStatus` → `findByApprovalNoAndApproverStatus` 개명.
+→ **교훈**: 이후 모든 단계의 검증에 `bootRun` + 수동 API 확인을 포함한다.
+   `compileJava` 통과만으로는 이런 무성 실패를 잡지 못한다.
 
 ### 단계 6에서 해결
 **[B] 결재 순서 무시**: 결재 완료 판단이 `i == size - 1` (인덱스 기반) 로만 되어

@@ -76,15 +76,16 @@
   → `APPROVED` / `REJECTED` / `PENDING`
 
 ### 스크립트 위치
-`src/main/resources/db/migration/` 디렉토리에 작성.
+`src/main/resources/db/manual/` 디렉토리에 작성.
 
 ```
-V{n}__approval_status_to_enum.sql
-V{n+1}__approver_status_to_enum.sql
+001-approval-status-to-enum.sql
+002-approver-status-to-enum.sql
 ```
 
-(현재 프로젝트는 Flyway 미사용. 스크립트는 수동 실행용으로 저장만 함.
-파일명 규칙은 향후 Flyway 도입 가능성을 고려.)
+(현재 프로젝트는 Flyway 미사용이며 도입 계획도 없다. `V{n}__` Flyway 네이밍은
+혼란을 줄 수 있어 `db/manual/NNN-*.sql` 순번 방식으로 정리했다. 스크립트는 MySQL
+Workbench 등에서 수동 실행한다.)
 
 ### 실행 순서
 1. 단계 1 작업 전: 현재 DB 상태 백업 (수동)
@@ -96,18 +97,24 @@ V{n+1}__approver_status_to_enum.sql
 ### 각 단계의 공통 원칙
 - 단계 시작 전: 해당 단계의 `tasks/NN-*.md` 정독
 - 단계 진행 중: 작업 범위(Scope)에 명시된 파일만 수정
-- 단계 완료 시: `./gradlew compileJava` 통과 + Success Criteria 모두 충족
+- 단계 완료 시: `./gradlew compileJava` 통과 + **`./gradlew bootRun` 정상 기동 + 수동 API 확인** + Success Criteria 모두 충족
+  (단계 1.5에서 확인됨: `compileJava` 통과만으로는 런타임 무성 실패를 잡지 못한다)
 - 단계 간 의존성 파악:
 
 ```
 1 (Entity)
-  └─> 2 (DTO)
-        └─> 3 (Response 통합)
-              ├─> 4 (File Service)       [3 이후, 6 이전 어디든]
-              ├─> 5 (No Generator)       [3 이후, 6 이전 어디든]
-              └─> 6 (God Class 분리)
-                    └─> 7 (Controller 슬림화)
+  └─> 1.5 (Repository 리터럴 정합)
+        └─> 2 (DTO)
+              └─> 3 (Response 통합)
+                    ├─> 4 (File Service)       [3 이후, 6 이전 어디든]
+                    ├─> 5 (No Generator)       [3 이후, 6 이전 어디든]
+                    └─> 6 (God Class 분리)
+                          └─> 7 (Controller 슬림화)
 ```
+
+> **단계 1.5 삽입 배경**: Entity 타입 변경(단계 1)이 Repository 쿼리로 전파되는데
+> 이것이 초기 명세에서 누락되었다. 상세는 spec.md 문제 [M] 및
+> `tasks/01.5-repository-jpql.md` 참조.
 
 ### 단계 간 빌드 가능성 유지 전략
 단계 1에서 Entity가 변경되면 기존 ApprovalService가 컴파일 깨질 수 있다.
@@ -121,7 +128,13 @@ V{n+1}__approver_status_to_enum.sql
 
 ### 자동 검증
 - `./gradlew compileJava` 통과
+- `./gradlew bootRun` 정상 기동 (`Started Application` 로그 확인)
 - `./gradlew build` 통과 (테스트가 있다면)
+
+> ⚠️ `compileJava` 통과는 JPQL 문자열의 정합성을 보장하지 않는다. Hibernate가
+> 파싱 단계에서 거부하지 않는 잘못된 리터럴 비교는 런타임에 조용히 0건을 반환한다
+> (단계 1.5, 문제 [M]). 따라서 **자동 검증만으로 단계 완료를 판단하지 않고, 아래
+> 수동 검증을 반드시 병행한다.**
 
 ### 수동 검증 (각 단계의 task.md에 구체 명시)
 다음 API의 동작이 단계 전후로 동일해야 한다.
@@ -135,21 +148,25 @@ V{n+1}__approver_status_to_enum.sql
 
 Postman 컬렉션 또는 수동 cURL로 확인하고, task.md의 체크리스트에 기록한다.
 
-## 작업 분담 (인간 ↔ Codex)
+## 작업 분담 (인간 ↔ Claude Code)
+
+> 실행 도구를 Codex CLI에서 Claude Code로 전환했다(인수인계 기준). 원칙은 동일하다:
+> 동일 도메인에 두 에이전트를 동시에 투입하지 않는다.
 
 ### 인간 (저자) 담당
 - spec.md, plan.md, tasks/*.md 작성과 리뷰
 - 각 단계 완료 후 diff 리뷰
 - 수동 검증 (API 동작 확인)
 - DB 마이그레이션 스크립트 실행
-- Git 커밋
+- Git 커밋 + 푸시
 
-### Codex CLI 담당
+### Claude Code 담당
 - task.md에 명시된 작업 범위 내 코드 작성·수정
-- 빌드 통과 확인
-- 변경 사항 보고 (변경 파일, 라인 수, 빌드 결과)
+- 빌드 통과(`compileJava`) + 부팅(`bootRun`) 확인
+- 작업 보고서 파일 저장 (`docs/refactoring/{도메인}/reports/{단계}-report.md`)
+- 변경 사항 보고 (변경 파일, 라인 수, 빌드·부팅 결과)
 
 ### 경계 원칙
-- Codex는 task.md의 "작업 범위" 외 파일은 수정하지 않는다.
-- 의도 변경, 범위 확장이 필요하다 판단되면 Codex는 작업을 중단하고 인간에게 보고한다.
-- DB 마이그레이션 스크립트는 Codex가 작성할 수 있으나 **실행은 인간이 수동으로 한다.**
+- Claude Code는 task.md의 "작업 범위" 외 파일은 수정하지 않는다.
+- 의도 변경, 범위 확장이 필요하다 판단되면 작업을 중단하고 인간에게 보고한다.
+- DB 마이그레이션 스크립트는 작성할 수 있으나 **실행은 인간이 수동으로 한다.**
