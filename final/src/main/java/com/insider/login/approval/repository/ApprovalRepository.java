@@ -16,30 +16,30 @@ import java.util.List;
 public interface ApprovalRepository extends JpaRepository<Approval, String> {
 
     //내가 쓴 기안 목록
-    @Query("SELECT a FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus != '임시저장'")
+    @Query("SELECT a FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus != com.insider.login.approval.enums.ApprovalStatus.TEMP_SAVED")
     List<Approval> findByMemberId(@Param("memberId") int memberId);
 
     //내가 쓴 기안 목록 제목 검색 + 페이지
     @Query("SELECT a FROM Approval a " +
             "WHERE a.memberId = :memberId " +
-            "AND a.approvalStatus != '임시저장' " +
+            "AND a.approvalStatus != com.insider.login.approval.enums.ApprovalStatus.TEMP_SAVED " +
             "AND a.approvalTitle LIKE %:title%")
     Page<Approval> findByMemberIdAndTitle(@Param("memberId") int memberId, @Param("title") String title, Pageable pageable);
 
     //내가 쓴 기안 목록 갯수
-    @Query("SELECT COUNT(a) FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus != '임시저장' AND a.approvalTitle LIKE %:title%")
+    @Query("SELECT COUNT(a) FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus != com.insider.login.approval.enums.ApprovalStatus.TEMP_SAVED AND a.approvalTitle LIKE %:title%")
     int countByMemberIdAndTItle(@Param("memberId") int memberId, @Param("title")String title);
 
     //내 임시저장
-    @Query("SELECT a FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus = '임시저장'")
+    @Query("SELECT a FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus = com.insider.login.approval.enums.ApprovalStatus.TEMP_SAVED")
     List<Approval> findTempByMemberId(@Param("memberId") int memberId);
 
     //임시저장 제목 검색 + 페이지
-    @Query("SELECT a FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus = '임시저장' AND a.approvalTitle LIKE %:title%")
+    @Query("SELECT a FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus = com.insider.login.approval.enums.ApprovalStatus.TEMP_SAVED AND a.approvalTitle LIKE %:title%")
     Page<Approval> findTempByMemberIdAndTitle(@Param("memberId") int memberId, @Param("title")String title, Pageable pageable);
 
     //내 임시저장 목록 갯수
-    @Query("SELECT COUNT(a) FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus = '임시저장' AND a.approvalTitle LIKE %:title%")
+    @Query("SELECT COUNT(a) FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus = com.insider.login.approval.enums.ApprovalStatus.TEMP_SAVED AND a.approvalTitle LIKE %:title%")
     int countTempByMemberIdAndTitle(@Param("memberId")int memberId, @Param("title")String title);
 
     //전자결재 삭제

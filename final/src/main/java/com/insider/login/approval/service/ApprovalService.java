@@ -406,7 +406,7 @@ public class ApprovalService {
         if (approval.getApprovalStatus() == ApprovalStatus.APPROVED) {
             finalApproverDate = approverList.get(approverList.size() - 1).getApproverDate().format(formatter);
         } else if (approval.getApprovalStatus() == ApprovalStatus.REJECTED) {
-            Optional<Approver> approverInfo = approverRepository.findByApprovalNoAndApprovalStatus(approvalNo, "반려"); //상태가 반려인 사람의 처리날짜
+            Optional<Approver> approverInfo = approverRepository.findByApprovalNoAndApproverStatus(approvalNo, ApproverStatus.REJECTED); //상태가 반려인 사람의 처리날짜
 
             finalApproverDate = approverInfo.map(Approver::getApproverDate).orElse(null).format(formatter);
 
