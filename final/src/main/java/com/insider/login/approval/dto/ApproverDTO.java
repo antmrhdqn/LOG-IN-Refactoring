@@ -1,5 +1,13 @@
 package com.insider.login.approval.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+
+@Getter
+@Setter
 public class ApproverDTO {
 
     //ApproverDTO
@@ -8,7 +16,8 @@ public class ApproverDTO {
     private String approvalNo;              //결재번호
     private int approverOrder;              //결재 순번
     private String approverStatus;          //결재 처리 상태
-    private String approverDate;            //결재처리일시
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime approverDate;     //결재처리일시
     private int memberId;                   //결재자 사번
 
     private String name;                    //결재자 이름
@@ -19,7 +28,7 @@ public class ApproverDTO {
 
     public ApproverDTO () {}
 
-    public ApproverDTO(String approverNo, String approvalNo, int approverOrder, String approverStatus, String approverDate, int memberId) {
+    public ApproverDTO(String approverNo, String approvalNo, int approverOrder, String approverStatus, LocalDateTime approverDate, int memberId) {
         this.approverNo = approverNo;
         this.approvalNo = approvalNo;
         this.approverOrder = approverOrder;
@@ -28,7 +37,7 @@ public class ApproverDTO {
         this.memberId = memberId;
     }
 
-    public ApproverDTO(String approverNo, String approvalNo, int approverOrder, String approverStatus, String approverDate, int memberId, String name, String positionName, String departName, String rejectReason) {
+    public ApproverDTO(String approverNo, String approvalNo, int approverOrder, String approverStatus, LocalDateTime approverDate, int memberId, String name, String positionName, String departName, String rejectReason) {
         this.approverNo = approverNo;
         this.approvalNo = approvalNo;
         this.approverOrder = approverOrder;
@@ -41,100 +50,4 @@ public class ApproverDTO {
         this.rejectReason = rejectReason;
     }
 
-    public String getApproverNo() {
-        return approverNo;
-    }
-
-    public void setApproverNo(String approverNo) {
-        this.approverNo = approverNo;
-    }
-
-    public String getApprovalNo() {
-        return approvalNo;
-    }
-
-    public void setApprovalNo(String approvalNo) {
-        this.approvalNo = approvalNo;
-    }
-
-    public int getApproverOrder() {
-        return approverOrder;
-    }
-
-    public void setApproverOrder(int approverOrder) {
-        this.approverOrder = approverOrder;
-    }
-
-    public String getApproverStatus() {
-        return approverStatus;
-    }
-
-    public void setApproverStatus(String approverStatus) {
-        this.approverStatus = approverStatus;
-    }
-
-    public String getApproverDate() {
-        return approverDate;
-    }
-
-    public void setApproverDate(String approverDate) {
-        this.approverDate = approverDate;
-    }
-
-    public int getMemberId() {
-        return memberId;
-    }
-
-    public void setMemberId(int memberId) {
-        this.memberId = memberId;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getPositionName() {
-        return positionName;
-    }
-
-    public void setPositionName(String positionName) {
-        this.positionName = positionName;
-    }
-
-    public String getDepartName() {
-        return departName;
-    }
-
-    public void setDepartName(String departName) {
-        this.departName = departName;
-    }
-
-    public String getRejectReason() {
-        return rejectReason;
-    }
-
-    public void setRejectReason(String rejectReason) {
-        this.rejectReason = rejectReason;
-    }
-
-
-    @Override
-    public String toString() {
-        return "ApproverDTO{" +
-                "approverNo='" + approverNo + '\'' +
-                ", approvalNo='" + approvalNo + '\'' +
-                ", approverOrder=" + approverOrder +
-                ", approverStatus='" + approverStatus + '\'' +
-                ", approverDate='" + approverDate + '\'' +
-                ", memberId=" + memberId +
-                ", name='" + name + '\'' +
-                ", positionName='" + positionName + '\'' +
-                ", departName='" + departName + '\'' +
-                ", rejectReason='" + rejectReason + '\'' +
-                '}';
-    }
 }

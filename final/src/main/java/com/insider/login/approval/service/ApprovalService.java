@@ -345,10 +345,6 @@ public class ApprovalService {
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-        //날짜 포맷
-        String approvalFormattedDateTime = approval.getApprovalDate().format(formatter);
-
-
         List<Approver> approverList = approverRepository.findByApprovalNo(approvalNo);
 //        log.info("*****selectApprover -- approverList " + approverList);
 
@@ -361,17 +357,8 @@ public class ApprovalService {
 
             Position receiverPosition = approvalPositionRepository.findById(receiverMember.getPositionLevel()).orElse(null);
 
-            String approverFormattedDateTime = "";
-
-            if (approverList.get(i).getApproverDate() != null) {
-                //날짜가 null이 아닐때
-                approverFormattedDateTime = approverList.get(i).getApproverDate().format(formatter);
-            }else{
-
-            }
-            //날짜 포맷
-
-            ApproverDTO approverDTO = new ApproverDTO(approverList.get(i).getApproverNo(), approverList.get(i).getApprovalNo(), approverList.get(i).getApproverOrder(), approverList.get(i).getApproverStatus().name(), approverFormattedDateTime, approverList.get(i).getMemberId(), receiverMember.getName(), receiverPosition.getPositionName(), receiverDepart.getDepartName(), approval.getRejectReason());
+            // TODO: Stage 6에서 제거
+            ApproverDTO approverDTO = new ApproverDTO(approverList.get(i).getApproverNo(), approverList.get(i).getApprovalNo(), approverList.get(i).getApproverOrder(), approverList.get(i).getApproverStatus().name(), approverList.get(i).getApproverDate(), approverList.get(i).getMemberId(), receiverMember.getName(), receiverPosition.getPositionName(), receiverDepart.getDepartName(), approval.getRejectReason());
 
             approver.add(approverDTO);
 
@@ -428,7 +415,8 @@ public class ApprovalService {
             standByMemberName = standByMember.getName();
         }
 
-        ApprovalDTO approvalDTO = new ApprovalDTO(approval.getApprovalNo(), approval.getMemberId(), approval.getApprovalTitle(), approval.getApprovalContent(), approvalFormattedDateTime, approval.getApprovalStatus().name(), approval.getRejectReason(), approval.getFormNo(), form.getFormName(), senderDepart.getDepartName(), senderMember.getName(), senderPosition.getPositionName(), attachment, approver, referencer, finalApproverDate, standByMemberName);
+        // TODO: Stage 6에서 제거
+        ApprovalDTO approvalDTO = new ApprovalDTO(approval.getApprovalNo(), approval.getMemberId(), approval.getApprovalTitle(), approval.getApprovalContent(), approval.getApprovalDate(), approval.getApprovalStatus().name(), approval.getRejectReason(), approval.getFormNo(), form.getFormName(), senderDepart.getDepartName(), senderMember.getName(), senderPosition.getPositionName(), attachment, approver, referencer, finalApproverDate, standByMemberName);
 
 
         return approvalDTO;
@@ -674,9 +662,8 @@ public class ApprovalService {
                 if (nextStatus == ApproverStatus.APPROVED) approver.approve();
                 else if (nextStatus == ApproverStatus.REJECTED) approver.reject();
 
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                LocalDateTime parsedDateTime = LocalDateTime.parse(approvalDTO.getApprovalDate(), formatter);
-                Approval approval = new Approval(approvalDTO.getApprovalNo(), approvalDTO.getMemberId(), approvalDTO.getApprovalTitle(), approvalDTO.getApprovalContent(), parsedDateTime, approvalDTO.getApprovalStatus(), approvalDTO.getRejectReason(), approvalDTO.getFormNo());
+                // TODO: Stage 6에서 제거
+                Approval approval = new Approval(approvalDTO.getApprovalNo(), approvalDTO.getMemberId(), approvalDTO.getApprovalTitle(), approvalDTO.getApprovalContent(), approvalDTO.getApprovalDate(), approvalDTO.getApprovalStatus(), approvalDTO.getRejectReason(), approvalDTO.getFormNo());
 
                 status:
                 switch (status) {
@@ -857,7 +844,6 @@ public class ApprovalService {
     public List<ApprovalDTO> ListToDTO(Page<Approval> approvalPage) {
 
         List<ApprovalDTO> approvalDTOList = new ArrayList<>();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         if (!approvalPage.getContent().isEmpty()) {
             approvalDTOList = approvalPage.getContent().stream()
@@ -866,7 +852,8 @@ public class ApprovalService {
                         String approvalNo = approval.getApprovalNo();
 
                         approvalDTO = selectApproval(approvalNo);
-                        approvalDTO.setApprovalDate(approval.getApprovalDate().format(formatter));
+                        // TODO: Stage 6에서 제거
+                        approvalDTO.setApprovalDate(approval.getApprovalDate());
 
 
                         return approvalDTO;
