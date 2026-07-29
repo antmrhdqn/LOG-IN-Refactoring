@@ -3,6 +3,7 @@ package com.insider.login.approval.service.file;
 import com.insider.login.approval.dto.AttachmentDTO;
 import com.insider.login.approval.entity.Attachment;
 import com.insider.login.approval.repository.AttachmentRepository;
+import com.insider.login.approval.service.generator.ApprovalNoGenerator;
 import com.insider.login.common.error.ErrorCode;
 import com.insider.login.common.error.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
@@ -41,8 +42,11 @@ public class ApprovalFileService {
 
     private final AttachmentRepository attachmentRepository;
 
-    public ApprovalFileService(AttachmentRepository attachmentRepository) {
+    private final ApprovalNoGenerator approvalNoGenerator;
+
+    public ApprovalFileService(AttachmentRepository attachmentRepository, ApprovalNoGenerator approvalNoGenerator) {
         this.attachmentRepository = attachmentRepository;
+        this.approvalNoGenerator = approvalNoGenerator;
     }
 
     /** 다운로드 응답 구성에 필요한 리소스와 헤더 재료 */
@@ -76,8 +80,7 @@ public class ApprovalFileService {
                 String ext = oriname.substring(oriname.lastIndexOf("."));
                 String savename = UUID.randomUUID().toString().replace("-", "") + ext;
 
-                // TODO: Stage 5 ApprovalNoGenerator 로 이관
-                String fileNo = approvalNo + "_f" + String.format("%03d", (i + 1));
+                String fileNo = approvalNoGenerator.fileNo(approvalNo, i + 1);
 
                 Path filePath = uploadPath.resolve(savename);
                 Files.copy(file.getInputStream(), filePath);

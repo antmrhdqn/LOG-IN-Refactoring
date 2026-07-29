@@ -6,6 +6,7 @@ import com.insider.login.approval.enums.ApprovalStatus;
 import com.insider.login.approval.enums.ApproverStatus;
 import com.insider.login.approval.repository.*;
 import com.insider.login.approval.service.file.ApprovalFileService;
+import com.insider.login.approval.service.generator.ApprovalNoGenerator;
 import com.insider.login.common.error.ErrorCode;
 import com.insider.login.common.error.exception.BusinessException;
 import jakarta.transaction.Transactional;
@@ -42,6 +43,8 @@ public class ApprovalService {
 
     private final ApprovalFileService approvalFileService;
 
+    private final ApprovalNoGenerator approvalNoGenerator;
+
     private final ModelMapper modelMapper;
 
     public ApprovalService(
@@ -56,6 +59,7 @@ public class ApprovalService {
 
             FormRepository formRepository,
             ApprovalFileService approvalFileService,
+            ApprovalNoGenerator approvalNoGenerator,
             ModelMapper modelMapper) {
         this.approvalRepository = approvalRepository2;
         this.approverRepository = approverRepository;
@@ -66,6 +70,7 @@ public class ApprovalService {
         this.approvalPositionRepository = approvalPositionRepository;
         this.formRepository = formRepository;
         this.approvalFileService = approvalFileService;
+        this.approvalNoGenerator = approvalNoGenerator;
         this.modelMapper = modelMapper;
     }
 
@@ -131,7 +136,7 @@ public class ApprovalService {
         //추가한 결재자 이외 기안자도 결재자에 넣기 => 첫 결재자(기안자)는 결재처리 상태를 '승인' 으로 바꾸기
         //임시저장시엔?
         Approver senderApprover = new Approver(
-                approvalDTO.getApprovalNo().concat("_apr000"),
+                approvalNoGenerator.senderApproverNo(approvalDTO.getApprovalNo()),
                 approvalDTO.getApprovalNo(),
                 0,
                 "승인",
@@ -376,7 +381,7 @@ public class ApprovalService {
 
             // 첫 결재자(기안자) 수정
             Approver senderApprover = new Approver(
-                    approvalDTO.getApprovalNo().concat("_apr000"),
+                    approvalNoGenerator.senderApproverNo(approvalDTO.getApprovalNo()),
                     approvalDTO.getApprovalNo(),
                     0,
                     "승인",
@@ -740,21 +745,6 @@ public class ApprovalService {
 
     }
 
-
-    //가장 마지막 전자결재 번호 조회
-    public String selectApprovalNo(String yearFormNo) {
-
-//        String lastApprovalNo = approvalRepository.findByApprovalNo(yearFormNo);
-
-        Pageable pageable = PageRequest.of(0, 1);
-        List<String> results = approvalRepository.findLastApprovalNo(yearFormNo, pageable);
-
-        String lastApprovalNo = results.isEmpty() ? null : results.get(0);
-
-        log.info("Service lastApprovalNo: " + lastApprovalNo);
-
-        return lastApprovalNo;
-    }
 
     //사원 정보 (기안자 정보 조회)
     public MemberDTO selectMember(int memberId) {
