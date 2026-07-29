@@ -19,6 +19,9 @@ public interface ApproverRepository extends JpaRepository<Approver, String> {
     //결재번호로 결재자목록 조회
     List<Approver> findByApprovalNo(String approvalNo);
 
+    //결재번호로 결재자목록 조회 (결재 순번 오름차순 — 결재선 순서·최종승인일 계산·완료 판정에 사용)
+    List<Approver> findByApprovalNoOrderByApproverOrderAsc(String approvalNo);
+
     //결재자 번호로 결재자 조회
     Optional<Approver> findByApproverNo(String approverNo);
 

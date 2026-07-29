@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface ApprovalRepository extends JpaRepository<Approval, String> {
+public interface ApprovalRepository extends JpaRepository<Approval, String>, ApprovalRepositoryCustom {
 
     //내가 쓴 기안 목록
     @Query("SELECT a FROM Approval a WHERE a.memberId = :memberId AND a.approvalStatus != com.insider.login.approval.enums.ApprovalStatus.TEMP_SAVED")

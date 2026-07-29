@@ -47,6 +47,8 @@ public enum ErrorCode {
     APPROVAL_FILE_NOT_FOUND(404, "AP007", "해당 결재 파일을 찾을 수 없습니다."),
     APPROVAL_WITHDRAW_NOT_OWNER(403, "AP008", "기안자 본인만 결재를 회수할 수 있습니다."),
     APPROVAL_WITHDRAW_ALREADY_PROCESSED(400, "AP009", "이미 처리된 결재는 회수할 수 없습니다."),
+    APPROVAL_INVALID_INITIAL_STATUS(400, "AP010", "허용되지 않는 초기 결재 상태입니다."),
+    APPROVAL_MODIFY_NOT_ALLOWED(400, "AP011", "임시저장 상태의 결재만 수정할 수 있습니다."),
 
     // 일정(Calendar) 관련 에러
     CALENDAR_NOT_FOUND(404, "CA01", "해당 일정을 찾을 수 없습니다."),

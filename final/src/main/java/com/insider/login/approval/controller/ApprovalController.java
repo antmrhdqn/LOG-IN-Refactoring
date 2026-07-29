@@ -1,9 +1,9 @@
 package com.insider.login.approval.controller;
 
 import com.insider.login.approval.dto.*;
-import com.insider.login.approval.service.ApprovalService;
+import com.insider.login.approval.service.ApprovalCommandService;
+import com.insider.login.approval.service.ApprovalQueryService;
 import com.insider.login.approval.service.file.ApprovalFileService;
-import com.insider.login.approval.service.generator.ApprovalNoGenerator;
 import com.insider.login.common.response.ResponseMessage;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +17,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDate;
 import java.util.*;
 
 @RestController
@@ -25,16 +24,16 @@ import java.util.*;
 @Slf4j
 public class ApprovalController {
 
-    private final ApprovalService approvalService;
+    private final ApprovalCommandService approvalCommandService;
+
+    private final ApprovalQueryService approvalQueryService;
 
     private final ApprovalFileService approvalFileService;
 
-    private final ApprovalNoGenerator approvalNoGenerator;
-
-    public ApprovalController(ApprovalService approvalService, ApprovalFileService approvalFileService, ApprovalNoGenerator approvalNoGenerator) {
-        this.approvalService = approvalService;
+    public ApprovalController(ApprovalCommandService approvalCommandService, ApprovalQueryService approvalQueryService, ApprovalFileService approvalFileService) {
+        this.approvalCommandService = approvalCommandService;
+        this.approvalQueryService = approvalQueryService;
         this.approvalFileService = approvalFileService;
-        this.approvalNoGenerator = approvalNoGenerator;
     }
 
 
@@ -44,14 +43,14 @@ public class ApprovalController {
 
         log.info("폼 목록 조회 controller 들어왔다");
 
-        return ResponseEntity.ok(ResponseMessage.success("폼 목록 조회 성공", approvalService.selectFormList()));
+        return ResponseEntity.ok(ResponseMessage.success("폼 목록 조회 성공", approvalQueryService.getFormList()));
     }
 
     @Tag(name = "특정 폼 조회", description = "특정 폼 조회")
     @GetMapping("/approvals/forms/{formNo}")
     public ResponseEntity<ResponseMessage<FormDTO>> selectForm(@PathVariable(name = "formNo") String formNo) {
 
-        return ResponseEntity.ok(ResponseMessage.success("특정 폼 조회 성공", approvalService.selectForm(formNo)));
+        return ResponseEntity.ok(ResponseMessage.success("특정 폼 조회 성공", approvalQueryService.getForm(formNo)));
     }
 
 
@@ -59,10 +58,8 @@ public class ApprovalController {
     @Tag(name = "전자결재 상세 조회", description = "전자결재 상세 조회")
     @GetMapping("/approvals/{approvalNo}")
     public ResponseEntity<ResponseMessage<ApprovalDTO>> selectApprovalByNo(@PathVariable(name = "approvalNo") String approvalNo) {
-       /* ApprovalDTO approvalDTO = approvalService.selectApproval(approvalNo);
-        log.info("approvalDTO: " + approvalDTO);*/
 
-        return ResponseEntity.ok(ResponseMessage.success("전자결재 상세 조회 성공", approvalService.selectApproval(approvalNo)));
+        return ResponseEntity.ok(ResponseMessage.success("전자결재 상세 조회 성공", approvalQueryService.getApproval(approvalNo)));
 
     }
 
@@ -101,7 +98,7 @@ public class ApprovalController {
         log.info("현재 pageNo : " + pageNo);
 
 
-        Page<ApprovalDTO> approvalDTOPage = approvalService.selectApprovalList(memberId, condition, pageNo);
+        Page<ApprovalDTO> approvalDTOPage = approvalQueryService.getApprovalList(memberId, condition, pageNo);
 
         System.out.println("🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈Page 총 페이지 controller : " + approvalDTOPage.getTotalPages());
 //        log.info("approvalDTOPage : " + approvalDTOPage.getContent());
@@ -120,7 +117,7 @@ public class ApprovalController {
         log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉회수 컨트롤러 들어왔어");
         // TODO: Stage 7에서 제거
         int memberId = Integer.parseInt(SecurityContextHolder.getContext().getAuthentication().getName());
-        return ResponseEntity.ok(ResponseMessage.success("전자 결재 회수 성공", approvalService.updateApprovalStatus(approvalNo, memberId)));
+        return ResponseEntity.ok(ResponseMessage.success("전자 결재 회수 성공", approvalCommandService.withdraw(approvalNo, memberId)));
 
     }
 
@@ -132,7 +129,6 @@ public class ApprovalController {
 
         log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉재 임시저장 컨트롤러 들어왔어");
 
-        log.info("기존 approval Form : " + approvalNo.substring(5, 8));
         log.info("새로운 approval Form : " + approvalDTO.getFormNo());
 
 
@@ -155,29 +151,7 @@ public class ApprovalController {
 
         approvalDTO.setMemberId(memberId);
 
-
-        //결재자번호(결재번호+_apr+순번)
-        List<ApproverDTO> approverDTOList = approvalDTO.getApprover();
-        for (int i = 0; i < approverDTOList.size(); i++) {
-            ApproverDTO approverDTO = approverDTOList.get(i);
-            approverDTO.setApproverNo(approvalNoGenerator.approverNo(approvalDTO.getApprovalNo(), i + 1));
-            approverDTO.setApprovalNo(approvalDTO.getApprovalNo());
-            approverDTO.setApproverStatus("대기");
-            approverDTO.setApproverOrder(i + 1);
-        }
-        approvalDTO.setApprover(approverDTOList);
-
-        //참조자번호(결재번호+_ref+순번)
-        List<ReferencerDTO> referencerDTOList = approvalDTO.getReferencer();
-        for (int i = 0; i < referencerDTOList.size(); i++) {
-            ReferencerDTO referencerDTO = referencerDTOList.get(i);
-            referencerDTO.setRefNo(approvalNoGenerator.referencerNo(approvalDTO.getApprovalNo(), i + 1));
-            referencerDTO.setApprovalNo(approvalDTO.getApprovalNo());
-            referencerDTO.setRefOrder(i + 1);
-        }
-        approvalDTO.setReferencer(referencerDTOList);
-
-        ApprovalDTO result = approvalService.updateApproval(approvalNo, approvalDTO, multipartFile);
+        ApprovalDTO result = approvalCommandService.resaveTempSaved(approvalNo, approvalDTO, multipartFile);
         log.info("결재 임시저장 수정 결과 성공: " + result);
         return ResponseEntity.ok(ResponseMessage.success("결재 임시저장 수정 결과 성공", result));
 
@@ -191,41 +165,6 @@ public class ApprovalController {
 
         log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉등록 컨트롤러 들어왔어");
         System.out.println("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉컨트롤러 들어왔어");
-
-
-        // 처음부터 처리 : approvalNo 가 없음 => 기안/임시저장 됨
-        // 임시저장 -> 기안 : approvalNo 가 있음 => 기존 approvalNo 를 꺼내서 ims 일 경우 삭제
-        // 기존 approvalNo
-        String originApprovalNo = approvalDTO.getApprovalNo();
-
-        if(originApprovalNo != null){
-            //기존 결재번호가 있다면
-            log.info("기존 결재번호 있단다 : " + originApprovalNo);
-            //임시저장(ims) 이었다면
-            String wasTemp =  originApprovalNo.substring(5, 8);
-            log.info("기존 폼 번호 : " + wasTemp);
-
-            if(wasTemp.equals("ims")){
-                //기존 전자결재 삭제
-                approvalService.approvalDelete(originApprovalNo);
-                log.info("기존 전자결재 삭제됨 ! : "+ originApprovalNo);
-            }
-        }
-
-        String approvalStatus = approvalDTO.getApprovalStatus();
-        int Year = LocalDate.now().getYear();
-
-        //전자결재 번호(연도+_양식번호+순번)
-        String formNo = approvalDTO.getFormNo();
-
-        if(approvalStatus.equals("임시저장")) {
-            //전자결재 번호(연도+_ims+순번)
-            formNo = "ims";
-        }
-
-        String approvalNo = approvalNoGenerator.nextApprovalNo(Year, formNo);
-
-        approvalDTO.setApprovalNo(approvalNo);
 
 
         //기안자사번
@@ -247,29 +186,8 @@ public class ApprovalController {
 
         approvalDTO.setMemberId(memberId);
 
-
-        //결재자번호(결재번호+_apr+순번)
-        List<ApproverDTO> approverDTOList = approvalDTO.getApprover();
-        for (int i = 0; i < approverDTOList.size(); i++) {
-            ApproverDTO approverDTO = approverDTOList.get(i);
-            approverDTO.setApproverNo(approvalNoGenerator.approverNo(approvalNo, i + 1));
-            approverDTO.setApprovalNo(approvalNo);
-            approverDTO.setApproverStatus("대기");
-            approverDTO.setApproverOrder(i + 1);
-        }
-        approvalDTO.setApprover(approverDTOList);
-
-        //참조자번호(결재번호+_ref+순번)
-        List<ReferencerDTO> referencerDTOList = approvalDTO.getReferencer();
-        for (int i = 0; i < referencerDTOList.size(); i++) {
-            ReferencerDTO referencerDTO = referencerDTOList.get(i);
-            referencerDTO.setRefNo(approvalNoGenerator.referencerNo(approvalNo, i + 1));
-            referencerDTO.setApprovalNo(approvalNo);
-            referencerDTO.setRefOrder(i + 1);
-        }
-        approvalDTO.setReferencer(referencerDTOList);
-
-        ApprovalDTO result = approvalService.insertApproval(approvalDTO, multipartFile);
+        //채번, 임시저장 -> 기안 전환 판정, 결재선·참조선 구성은 서비스가 책임진다
+        ApprovalDTO result = approvalCommandService.draft(approvalDTO, multipartFile);
         log.info("결재 기안 결과 성공: " + result);
         return ResponseEntity.ok(ResponseMessage.success("전자결재 기안 성공", result));
 
@@ -283,12 +201,8 @@ public class ApprovalController {
 
         log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉결재 컨트롤러 들어왔어");
 
-        Map<String, String> statusMap = new HashMap<>();
-        statusMap.put("approverStatus", approverDTO.getApproverStatus());
-        statusMap.put("rejectReason", approverDTO.getRejectReason());
-
         return ResponseEntity.ok(ResponseMessage.success("전자결재" + approverDTO.getApproverStatus() + "처리 완료",
-                approvalService.updateApprover(approverNo, statusMap)));
+                approvalCommandService.processApprover(approverNo, approverDTO)));
     }
 
     @Tag(name = "전자결재 삭제", description = "전자결재 임시저장 삭제")
@@ -296,7 +210,7 @@ public class ApprovalController {
     public ResponseEntity<ResponseMessage<Boolean>> deleteApproval(@PathVariable(name = "approvalNo") String approvalNo) {
 
         return ResponseEntity.ok(ResponseMessage.success("전자결재 삭제 성공",
-                approvalService.approvalDelete(approvalNo)));
+                approvalCommandService.delete(approvalNo)));
     }
 
 
@@ -304,13 +218,13 @@ public class ApprovalController {
     public ResponseEntity<ResponseMessage<MemberDTO>> selectMember(@PathVariable(name = "memberId") int memberId) {
 
         return ResponseEntity.ok(ResponseMessage.success("사원 조회 성공",
-                approvalService.selectMember(memberId)));
+                approvalQueryService.getMember(memberId)));
     }
 
     @GetMapping("/approvals/members")
     public ResponseEntity<ResponseMessage<List<MemberDTO>>> selectAllMembers() {
         return ResponseEntity.ok(ResponseMessage.success("전 사원 부서순 조회 성공",
-                approvalService.selectAllMemberList()));
+                approvalQueryService.getAllMemberList()));
 
 
     }

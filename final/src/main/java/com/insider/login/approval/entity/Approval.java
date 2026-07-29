@@ -74,6 +74,20 @@ public class Approval {
         this.approvalStatus = ApprovalStatus.WITHDRAWN;
     }
 
+    /**
+     * 임시저장 상태의 기안 내용을 수정한다(삭제 후 재생성이 아니라 dirty checking 으로 갱신).
+     * 반려사유와 기안자는 유지한다.
+     */
+    public void modifyDraft(String approvalTitle, String approvalContent, String formNo) {
+        if (approvalStatus != ApprovalStatus.TEMP_SAVED) {
+            throw new BusinessException(ErrorCode.APPROVAL_MODIFY_NOT_ALLOWED);
+        }
+        this.approvalTitle = approvalTitle;
+        this.approvalContent = approvalContent;
+        this.formNo = formNo;
+        this.approvalDate = LocalDateTime.now();
+    }
+
     public void submitFromTempSaved() {
         if (!approvalStatus.canTransitionTo(ApprovalStatus.PROCESSING)) {
             throw new BusinessException(ErrorCode.APPROVAL_INVALID_STATUS_TRANSITION);
