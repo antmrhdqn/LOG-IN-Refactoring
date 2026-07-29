@@ -1,0 +1,10 @@
+# IDE / 로컬 산출물 (레포 전역)
+.idea/
+**/.postman/
+**/postman/
+*.iws
+*.iml
+*.ipr
+
+# 무시할 문서
+REFACTORING_SUMMARY.md
