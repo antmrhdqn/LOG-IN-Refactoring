@@ -19,8 +19,8 @@
 - 휴가 도메인 패턴: `docs/reference/leave-pattern.md` (결재가 따를 레퍼런스)
 
 ### 현재 진행 단계
-**단계 4: 파일 처리 분리** — `docs/refactoring/approval/tasks/04-file.md`
-(단계 1 Entity·1.5 Repository JPQL·2 DTO·3 공통 응답 통합 완료·커밋·푸시 / `eee0e10` origin/main)
+**단계 5: 결재번호 생성기 분리** — `docs/refactoring/approval/tasks/05-generator.md`
+(단계 1·1.5·2·3 완료 / 단계 4 파일 처리 분리 완료·커밋·푸시 — `89d27b8`(코드)·`c30ea54`(문서)·`+.gitignore`, origin/main 동기화)
 
 ### 단계 로드맵
 ```
@@ -28,8 +28,8 @@
 1.5. Repository 상태 리터럴 정합 ✅
 2. DTO 정리 ✅
 3. 공통 응답 체계 통합 ✅
-4. 파일 처리 분리 (현재)
-5. 결재번호 생성기 분리
+4. 파일 처리 분리 ✅
+5. 결재번호 생성기 분리 (현재)
 6. God Class 분리 (Command / Query)
 7. Controller 슬림화
 ```
