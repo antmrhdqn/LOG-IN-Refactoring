@@ -12,7 +12,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,8 +40,6 @@ public class ApprovalController {
     @GetMapping("/approvals/forms")
     public ResponseEntity<ResponseMessage<List<FormDTO>>> selectFormList() {
 
-        log.info("폼 목록 조회 controller 들어왔다");
-
         return ResponseEntity.ok(ResponseMessage.success("폼 목록 조회 성공", approvalQueryService.getFormList()));
     }
 
@@ -66,45 +63,19 @@ public class ApprovalController {
     @Tag(name = "전자결재 목록 조회", description = "전자결재 목록 조회")
     @GetMapping("/approvals")
     public ResponseEntity<ResponseMessage<Page<ApprovalDTO>>> selectApprovalList(@RequestParam("fg") String fg,
-                                                          @RequestParam(name = "page", defaultValue = "0") String page,
+                                                          @RequestParam(name = "page", defaultValue = "0") int page,
                                                           @RequestParam(name = "title", defaultValue = "") String title,
-                                                          @RequestParam(name = "direction", defaultValue = "DESC") String direction,
-                                                          @RequestHeader(value = "memberId", required = false) String memberIdstr) {
-        log.info("****컨트롤러 들어왔어");
+                                                          @RequestParam(name = "direction", defaultValue = "DESC") String direction) {
 
-        int memberId = 0;
-
-        if (memberIdstr == null) {
-            //현재 사용자의 인증 정보 가져오기
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            log.info("memberId: " + authentication.getName());
-
-            //인증 정보에서 사용자의 식별 정보 가져오기
-            memberId = Integer.parseInt(authentication.getName());
-
-        } else {
-            memberId = Integer.parseInt(memberIdstr);
-        }
-        log.info("현재 사용자 : " + memberId);
+        int memberId = getCurrentMemberId();
 
         Map<String, Object> condition = new HashMap<>();
         condition.put("flag", fg);
-        condition.put("limit", 10);
         condition.put("direction", direction);
         condition.put("title", title);
 
-        int pageNo = Integer.parseInt(page);
-        System.out.println("현재 pageNo : " + pageNo);
-        log.info("현재 pageNo : " + pageNo);
-
-
-        Page<ApprovalDTO> approvalDTOPage = approvalQueryService.getApprovalList(memberId, condition, pageNo);
-
-        System.out.println("🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈Page 총 페이지 controller : " + approvalDTOPage.getTotalPages());
-//        log.info("approvalDTOPage : " + approvalDTOPage.getContent());
-
-        System.out.println("조회성공");
-        return ResponseEntity.ok(ResponseMessage.success("상신 목록 조회 성공", approvalDTOPage));
+        return ResponseEntity.ok(ResponseMessage.success("상신 목록 조회 성공",
+                approvalQueryService.getApprovalList(memberId, condition, page)));
 
     }
 
@@ -113,11 +84,8 @@ public class ApprovalController {
     @PutMapping(value = "/approvals/{approvalNo}/status")
     public ResponseEntity<ResponseMessage<ApprovalDTO>> updateApprovalstatus(@PathVariable(name = "approvalNo") String approvalNo) {
 
-
-        log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉회수 컨트롤러 들어왔어");
-        // TODO: Stage 7에서 제거
-        int memberId = Integer.parseInt(SecurityContextHolder.getContext().getAuthentication().getName());
-        return ResponseEntity.ok(ResponseMessage.success("전자 결재 회수 성공", approvalCommandService.withdraw(approvalNo, memberId)));
+        return ResponseEntity.ok(ResponseMessage.success("전자 결재 회수 성공",
+                approvalCommandService.withdraw(approvalNo, getCurrentMemberId())));
 
     }
 
@@ -127,32 +95,11 @@ public class ApprovalController {
                                                           @RequestPart(name = "approvalDTO") ApprovalDTO approvalDTO,
                                                           @RequestPart(name = "multipartFile", required = false) List<MultipartFile> multipartFile) {
 
-        log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉재 임시저장 컨트롤러 들어왔어");
-
-        log.info("새로운 approval Form : " + approvalDTO.getFormNo());
-
-
         approvalDTO.setApprovalNo(approvalNo);
-
-
-        //기안자사번
-        //현재 사용자의 인증 정보 가져오기
-        int memberId = 0;
-
-        //현재 사용자의 인증 정보 가져오기
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        log.info("memberId: " + authentication.getName());
-
-        //인증 정보에서 사용자의 식별 정보 가져오기
-        memberId = Integer.parseInt(authentication.getName());
-
-
-        log.info("현재 사용자 : " + memberId);
-
-        approvalDTO.setMemberId(memberId);
+        approvalDTO.setMemberId(getCurrentMemberId());
 
         ApprovalDTO result = approvalCommandService.resaveTempSaved(approvalNo, approvalDTO, multipartFile);
-        log.info("결재 임시저장 수정 결과 성공: " + result);
+        log.info("결재 임시저장 수정 성공: " + result.getApprovalNo());
         return ResponseEntity.ok(ResponseMessage.success("결재 임시저장 수정 결과 성공", result));
 
     }
@@ -160,35 +107,13 @@ public class ApprovalController {
     @Tag(name = "전자결재 기안", description = "기안")
     @PostMapping("/approvals")
     public ResponseEntity<ResponseMessage<ApprovalDTO>> insertApproval(@RequestPart("approvalDTO") ApprovalDTO approvalDTO,
-                                                      @RequestPart(value = "multipartFile", required = false) List<MultipartFile> multipartFile,
-                                                      @RequestHeader(name = "memberId", required = false) String memberIdstr) {
+                                                      @RequestPart(value = "multipartFile", required = false) List<MultipartFile> multipartFile) {
 
-        log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉등록 컨트롤러 들어왔어");
-        System.out.println("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉컨트롤러 들어왔어");
-
-
-        //기안자사번
-        //현재 사용자의 인증 정보 가져오기
-        int memberId = 0;
-
-        if (memberIdstr == null) {
-            //현재 사용자의 인증 정보 가져오기
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            log.info("memberId: " + authentication.getName());
-
-            //인증 정보에서 사용자의 식별 정보 가져오기
-            memberId = Integer.parseInt(authentication.getName());
-
-        } else {
-            memberId = Integer.parseInt(memberIdstr);
-        }
-        log.info("현재 사용자 : " + memberId);
-
-        approvalDTO.setMemberId(memberId);
+        approvalDTO.setMemberId(getCurrentMemberId());
 
         //채번, 임시저장 -> 기안 전환 판정, 결재선·참조선 구성은 서비스가 책임진다
         ApprovalDTO result = approvalCommandService.draft(approvalDTO, multipartFile);
-        log.info("결재 기안 결과 성공: " + result);
+        log.info("결재 기안 성공: " + result.getApprovalNo());
         return ResponseEntity.ok(ResponseMessage.success("전자결재 기안 성공", result));
 
     }
@@ -197,9 +122,6 @@ public class ApprovalController {
     @PutMapping("/approvers/{approverNo}")
     public ResponseEntity<ResponseMessage<ApproverDTO>> updateApprover(@PathVariable(name = "approverNo") String approverNo,
                                                       @RequestBody ApproverDTO approverDTO) {
-
-
-        log.info("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉결재 컨트롤러 들어왔어");
 
         return ResponseEntity.ok(ResponseMessage.success("전자결재" + approverDTO.getApproverStatus() + "처리 완료",
                 approvalCommandService.processApprover(approverNo, approverDTO)));
@@ -231,11 +153,9 @@ public class ApprovalController {
 
     @Tag(name = "파일 다운로드", description = "파일 다운로드")
     @GetMapping("/approvals/files")
-    public ResponseEntity<Resource> dounloadFile(@RequestParam(name = "fileSavepath") String fileSavepath,
+    public ResponseEntity<Resource> downloadFile(@RequestParam(name = "fileSavepath") String fileSavepath,
                                                  @RequestParam(name = "fileSavename") String fileSavename,
                                                  @RequestParam(name = "fileOriname") String fileOriname){
-
-        System.out.println("🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈파일 컨트롤러 들어왔어🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈🎈");
 
         //fileSavepath 는 요청 형태 유지를 위해 받기만 하고 사용하지 않는다(베이스 경로는 파일 서비스가 소유)
         ApprovalFileService.FileDownload fileDownload = approvalFileService.loadAsResource(fileSavename, fileOriname);
@@ -249,5 +169,10 @@ public class ApprovalController {
                 .headers(headers)
                 .contentType(MediaType.parseMediaType(fileDownload.contentType()))
                 .body(fileDownload.resource());
+    }
+
+    //인증 정보에서 현재 로그인한 사원의 사번을 꺼낸다
+    private int getCurrentMemberId() {
+        return Integer.parseInt(SecurityContextHolder.getContext().getAuthentication().getName());
     }
 }

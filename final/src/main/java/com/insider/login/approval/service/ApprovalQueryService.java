@@ -30,6 +30,9 @@ import static java.util.Objects.isNull;
 @Slf4j
 public class ApprovalQueryService {
 
+    //목록 조회 페이지 크기 (정책 상수 — Stage 7에서 Controller의 condition Map에서 이관)
+    private static final int DEFAULT_PAGE_SIZE = 10;
+
     private final ApprovalRepository approvalRepository;
     private final ApproverRepository approverRepository;
     private final AttachmentRepository attachmentRepository;
@@ -247,15 +250,10 @@ public class ApprovalQueryService {
         //결제대기내역 조회 : received / approver_id : 나 / 내 approver_order가 1이상 / approval 상태 = 처리중만, 해당 approval_no의 approver의 상태 중 '대기' 상태의 처음이 자신의 approver_order일 경우에만
         //수신참조내역 조회 : receivedRef / referencer_id : 나 / 임시저장, 회수 제외
 
-        log.info("service 들어왔다 : selectApprovalList");
-        System.out.println("service 들어왔다 : selectApprovalList");
-
         List<ApprovalDTO> approvalDTOList = new ArrayList<>();
 
         String flag = condition.get("flag").toString();
         String title = isNull(condition.get("title")) ? "" : condition.get("title").toString();
-
-        int limit = (Integer) condition.get("limit");
 
         String direction = isNull(condition.get("direction")) ? "" : condition.get("direction").toString();
 
@@ -266,10 +264,7 @@ public class ApprovalQueryService {
             sort = sort.descending();
         }
 
-        log.info("*****서비스 들어옴 : memberId : " + memberId + ", flag : " + flag + ", title : " + title + ", pageNo : " + pageNo);
-        System.out.println("*****서비스 들어옴 : memberId : " + memberId + ", flag : " + flag + ", title : " + title + ", pageNo : " + pageNo);
-
-        Pageable pageable = PageRequest.of(pageNo, limit);
+        Pageable pageable = PageRequest.of(pageNo, DEFAULT_PAGE_SIZE);
         Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
         Page<Approval> approvalPage = null;
@@ -279,7 +274,6 @@ public class ApprovalQueryService {
                 //결재 상신함 (내가 기안자 / 임시저장 제외)
 
                 approvalPage = approvalRepository.findByMemberIdAndTitle(memberId, title, sortedPageable);
-                System.out.println("totalPage : " + approvalPage.getTotalPages());
 
                 approvalDTOList = listToDTO(approvalPage);
 
@@ -355,17 +349,14 @@ public class ApprovalQueryService {
 
         }
 
-        int totalPage = approvalPage.getTotalPages();
+        //지원하지 않는 fg 값(receivedAll 포함)은 switch를 그냥 빠져나와 approvalPage가 null이다
+        if (approvalPage == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
         long total = approvalPage.getTotalElements();
 
-        System.out.println("Service last totalPage : " + totalPage);
-
-        System.out.println("Service total 갯수 : " + total);
-
         PageImpl<ApprovalDTO> appPage = new PageImpl<>(approvalDTOList, sortedPageable, total);
-        System.out.println("new PageImpl getPageable: " + appPage.getSize());
-
-        System.out.println("new PageImpl totalPage : " + appPage.getTotalPages());
 
         return appPage;
     }
@@ -391,7 +382,6 @@ public class ApprovalQueryService {
                 department.getDepartName(),
                 position.getPositionName());
 
-        log.info("memberDTO" + memberDTO);
         return memberDTO;
     }
 
