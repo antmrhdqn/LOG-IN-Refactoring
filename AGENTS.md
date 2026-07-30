@@ -19,8 +19,8 @@
 - 휴가 도메인 패턴: `docs/reference/leave-pattern.md` (결재가 따를 레퍼런스)
 
 ### 현재 진행 단계
-**단계 6: God Class 분리 (Command / Query)** — `docs/refactoring/approval/tasks/06-command-query.md`
-(단계 1·1.5·2·3·4 완료 / 단계 5 결재번호 생성기 분리 완료·커밋·푸시 — `80f60b7`(코드)·`0215951`(문서), origin/main 동기화)
+**단계 7: Controller 슬림화** — `docs/refactoring/approval/tasks/07-controller.md`
+(단계 1·1.5·2·3·4·5 완료 / 단계 6 God Class 분리 완료·커밋·푸시 — `2446c73`(코드)·`43e3a61`(문서), origin/main 동기화)
 
 ### 단계 로드맵
 ```
@@ -30,20 +30,23 @@
 3. 공통 응답 체계 통합 ✅
 4. 파일 처리 분리 ✅
 5. 결재번호 생성기 분리 ✅
-6. God Class 분리 (Command / Query) (현재)
-7. Controller 슬림화
+6. God Class 분리 (Command / Query) ✅
+7. Controller 슬림화 (현재)
 ```
 
 ## 완료된 리팩토링
 - 전역 에러 처리: `docs/refactoring/completed/error-handling.md`
 - 휴가 도메인: `docs/refactoring/completed/leave-domain.md`
+- 전자결재 도메인: `docs/refactoring/completed/approval-domain.md`
 
 ## 작업 시작 시 규칙
 
 1. 작업 중인 단계의 `tasks/NN-*.md`를 먼저 정독할 것
 2. 그 단계의 "작업 범위"에 명시된 파일만 수정. "범위 외" 항목은 절대 건드리지 말 것
 3. 그 단계의 "Success Criteria"를 모두 만족시킬 것
-4. 매 단계 완료 시 `./gradlew compileJava` 빌드 통과 + `./gradlew bootRun` 정상 기동 + 수동 API 확인 필수
+4. 매 단계 완료 시 `./gradlew compileJava` + `./gradlew compileTestJava` 통과 +
+   `./gradlew bootRun` 정상 기동 + 수동 API 확인 필수
+   (`compileTestJava`는 단계 7에서 처음 통과 상태가 됐다 — test-suite-status.md §3)
    (`compileJava`만으로는 JPQL 리터럴 무성 실패 등을 잡지 못한다 — 단계 1.5 참조)
 5. 임시 수정한 위치는 작업 보고서에 빠짐없이 기록
 6. 의문점·예상 못 한 상황은 추측 말고 사용자에게 즉시 보고
