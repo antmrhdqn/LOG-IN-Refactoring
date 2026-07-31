@@ -145,8 +145,13 @@ spec "코드 분석으로 발견된 추가 문제"에 열거된 항목 기준.
 `receivedRef` **0건(토큰) vs 7건(헤더 240401001)**. 다른 사람의 목록이 그대로 반환됐다.
 
 `[J]`의 password 로그(`ApprovalQueryService:394`)는 `MemberDTO.toString()`이 평문 비밀번호를
-포함하기 때문에, `GET /approvals/members/{memberId}` 호출마다 **평문 비밀번호가 로그 파일에 적재**되고
+포함하기 때문에, `GET /approvals/members/{memberId}` 호출마다 **평문 비밀번호가 로그로 출력**되고
 있었다. 이번에 차단했다.
+
+> **📌 정정 (2026-07-31, 보안 작업 A)** — 초판은 "**로그 파일에 적재**"라고 적었으나 사실이 아니다.
+> 이 앱에는 **파일 appender가 없다** (`logback-*.xml` 부재, `application.yml`에 `logging.file.*` 없음).
+> 유출 경로는 **콘솔/stdout**이다. 디스크에 영속되지 않으므로 **피해 크기 판단이 달라진다.**
+> 같은 오기가 `reports/07-controller-report.md:183`에도 있었고 함께 정정했다.
 
 ### ⚠ spec의 결함 목록이 완전하지 않았다
 
@@ -156,6 +161,17 @@ spec `[A-확장]`은 회수 API의 인증 부재를 지적했지만 **결재 처
 
 → **"spec 결함 목록에 없으니 없는 문제"로 읽지 말 것.** 이 리팩토링은 열거된 결함을 닫았을 뿐이며,
 열거 자체가 완전했다는 보장은 없다. 인증·권한 경계는 **엔드포인트 단위로 다시 훑어야 한다.**
+
+> **📌 정정 (2026-07-31, 보안 작업 A) — 실제 규모는 위 서술보다 훨씬 컸다.**
+> 위 문단은 `PUT /approvers` **1건**을 예로 들었으나, 예고한 대로 훑어 본 결과:
+> - **쓰기 엔드포인트 5종 중 4종**에 호출자 신원 검증이 없었다
+>   (`PUT /approvers` · `DELETE /approvals/{no}` · `PUT /approvals/{no}` 재임시저장 ·
+>   `POST /approvals` 기존번호 분기). 회수 1종만 검증이 있었다 → **작업 A에서 4종 전부 닫았다**
+> - **읽기 경로에도 인가가 없다** — `GET /approvals/{approvalNo}` 상세 조회와
+>   `GET /approvals/files` 파일 다운로드가 기안자·결재자·참조자 여부를 묻지 않는다
+>   → **작업 E** (정책 결정 선행)
+>
+> `docs/security/approval/spec.md` §3·§4-4 참조. **이 문단의 경고 자체는 옳았다.**
 
 ### 단계 7이 함께 닫은 잔해
 
@@ -277,6 +293,17 @@ spec `[A-확장]`은 회수 API의 인증 부재를 지적했지만 **결재 처
   `auth/**`·`member/**`라 단계 7 §6 금지 범위여서 **기록만 했다.** 위 🔴 항목과 같은 부류이며,
   결재 도메인의 password 로그를 차단한 것과 **같은 조치가 로그인 경로에도 필요하다.**
 
+  > **📌 정정 (2026-07-31, 보안 작업 A)** — 위 "해시 3곳"은 **과소집계다.**
+  > 보안 조사에서 아래가 목록에 없었음이 확인됐다 (`docs/security/approval/spec.md` §4-2).
+  > - **평문 비밀번호 4곳** — `CustomAuthenticationProvider:35`,
+  >   `MemberController:317`(신규 비밀번호 2개 + 현재), `MemberController:477`, `MemberService:272`
+  > - **전 사원 해시 일괄 출력** — `MemberService:191·193` (`findAll()` 전체, 한 요청에 2회)
+  > - **토큰 전문 3곳(활성)** — `CustomAuthSuccessHandler:38`, `TestController:27·45`
+  >   (+ `CustomAuthSuccessHandler:38` 주석에 실제 형태 JWT 하드코딩)
+  > - **SQL 로그** — `show-sql=true` + `hibernate.sql=debug`로 `password` 컬럼이 SELECT 목록에 노출
+  >
+  > → **작업 C** 소관이다.
+
 ### 📄 문서 드리프트
 
 - **`AGENTS.md`의 "완료된 리팩토링" 링크 2건이 죽어 있다** —
@@ -313,6 +340,18 @@ spec `[A-확장]`은 회수 API의 인증 부재를 지적했지만 **결재 처
    **프론트는 번호가 아니라 상태로 목록을 거르므로 화면 위험은 없다**(상신함에만 노출 — 사용자 확인 완료).
 5. **목록 상태 컬럼에 영문 Enum(`PROCESSING`)이 그대로 노출된다** — Stage 1 Enum 전환의 파급이다.
    프론트 표시 매핑 문제이고 프론트 변경은 리팩토링 범위 밖이라 기록만 한다.
+
+   > **📌 정정 (2026-07-31, 보안 작업 A) — 표시 문제가 아니라 기능 정지다.**
+   > 같은 원인이 `canApproveOrReject`를 **항상 false**로 만든다.
+   > ```
+   > 서버 응답   ApprovalQueryService:185·242   .name()      → "PENDING" / "PROCESSING"
+   > 프론트      ApprovalDetail.js:129          === '대기'   → 항상 false
+   >             ApprovalDetail.js:222·265      {canApproveOrReject && ...}  → 미렌더
+   > ```
+   > **2026-07-31 실측**: 관리자 계정의 결재 수신함에서 사원이 상신한 결재 상세를 열어도
+   > **승인·반려 버튼이 없다.** 즉 **결재 처리 기능이 현재 프론트에서 정지 상태다.**
+   > (`docs/security/approval/spec.md` §5. 프론트 근거는 리포 외부 —
+   > `LOG-IN-F-Refactoring`, `main`, `8c13156`)
 6. **임시저장 → 기안 전환이 프론트의 실제 주 경로다** — 작성 화면에서 임시저장 후 기안을 누르면
    임시저장 응답의 결재번호를 그대로 실어 보낸다. Stage 6이 "요청 status가 전환 여부를 가른다"로
    구현한 덕에 **임시저장을 두 번 눌러도 상신되지 않는다.**

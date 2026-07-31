@@ -180,7 +180,12 @@ DTO 덤프 2건을 **완전 제거하지 않고 결재번호만 남긴** 이유�
 
 L394는 로그 정돈이 아니라 **비밀번호 유출 차단**이다. `MemberDTO.toString()`은 Lombok이 아니라
 수동 작성이며 `", password='" + password + '\''`를 포함한다(§3-5). `GET /approvals/members/{memberId}`를
-호출할 때마다 **평문 비밀번호가 로그 파일에 적재**되고 있었다.
+호출할 때마다 **평문 비밀번호가 로그로 출력**되고 있었다.
+
+> **📌 정정 (2026-07-31, 보안 작업 A)** — 초판은 "**로그 파일에 적재**"라고 적었으나 사실이 아니다.
+> 이 앱에는 **파일 appender가 없다** (`logback-*.xml` 부재, `application.yml`에 `logging.file.*` 없음).
+> 유출 경로는 **콘솔/stdout**이며 디스크에 영속되지 않는다. **피해 크기 판단이 달라진다.**
+> 같은 오기가 `completed/approval-domain.md:148`에도 있었고 함께 정정했다.
 **응답 JSON의 password 필드는 건드리지 않았다**(D14-b — 범위 밖. 종료 문서 보안 권고 최우선 항목).
 
 `ApprovalCommandService`의 기존 로그는 **무변경**(§6 금지).
