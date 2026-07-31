@@ -71,8 +71,10 @@ public class ApprovalCommandService {
      * <p>
      * 요청에 결재번호가 실려 있고 그 결재가 임시저장 상태면 <b>같은 결재번호를 유지한 채</b> 기안으로 전환한다.
      * 그 외에는 새 결재번호를 채번해 신규로 만든다. 초기 상태는 서버가 결정한다(클라이언트 값 신뢰 금지).
+     *
+     * @param memberId 호출자 사번(인증 정보에서 추출). 기존 결재를 이어받는 경우에만 기안자 본인인지 확인한다.
      */
-    public ApprovalDTO draft(ApprovalDTO approvalDTO, List<MultipartFile> files) {
+    public ApprovalDTO draft(ApprovalDTO approvalDTO, List<MultipartFile> files, int memberId) {
 
         ApprovalStatus initialStatus = resolveInitialStatus(approvalDTO.getApprovalStatus());
 
@@ -85,17 +87,25 @@ public class ApprovalCommandService {
 
             if (existing != null && existing.getApprovalStatus() == ApprovalStatus.TEMP_SAVED) {
 
+                //남의 임시저장을 이어받는 것을 막는다. 상신이든 재저장이든 갈래를 가리기 "전"에 판정해야
+                //두 경로가 함께 닫힌다.
+                if (existing.getMemberId() != memberId) {
+                    throw new BusinessException(ErrorCode.APPROVAL_UNAUTHORIZED);
+                }
+
                 if (initialStatus == ApprovalStatus.PROCESSING) {
                     log.info("임시저장 -> 기안 전환 : " + requestedApprovalNo);
+                    //resubmit 은 private 이고 이 지점에서 이미 기안자 본인이 확인됐으므로 추가 검증을 두지 않는다
                     return resubmit(requestedApprovalNo, approvalDTO, files);
                 }
 
                 log.info("임시저장 재저장 : " + requestedApprovalNo);
-                return resaveTempSaved(requestedApprovalNo, approvalDTO, files);
+                return resaveTempSaved(requestedApprovalNo, approvalDTO, files, memberId);
             }
         }
 
-        //신규 기안 : 임시저장이면 양식번호를 ims 로 대체해 채번한다
+        //신규 기안 : 기안자가 곧 호출자라 대조할 상대가 없다. 여기에 소유자 검증을 넣으면 안 된다.
+        //임시저장이면 양식번호를 ims 로 대체해 채번한다
         String formNo = (initialStatus == ApprovalStatus.TEMP_SAVED) ? TEMP_SAVED_FORM_NO : approvalDTO.getFormNo();
         String approvalNo = approvalNoGenerator.nextApprovalNo(LocalDate.now().getYear(), formNo);
 
@@ -126,11 +136,18 @@ public class ApprovalCommandService {
      * <p>
      * 기존 결재를 삭제하지 않고 내용만 갱신한다(결재번호·이력 보존).
      * 요청의 상태값은 사용하지 않는다 — 임시저장은 임시저장으로 남는다.
+     *
+     * @param memberId 호출자 사번(인증 정보에서 추출). 기안자 본인만 수정할 수 있다.
      */
-    public ApprovalDTO resaveTempSaved(String approvalNo, ApprovalDTO approvalDTO, List<MultipartFile> files) {
+    public ApprovalDTO resaveTempSaved(String approvalNo, ApprovalDTO approvalDTO, List<MultipartFile> files, int memberId) {
 
         Approval approval = approvalRepository.findById(approvalNo)
                 .orElseThrow(() -> new BusinessException(ErrorCode.APPROVAL_NOT_FOUND));
+
+        //상태보다 신원을 먼저 본다. 순서가 반대면 남의 문서의 상태를 알려주게 된다.
+        if (approval.getMemberId() != memberId) {
+            throw new BusinessException(ErrorCode.APPROVAL_UNAUTHORIZED);
+        }
 
         //디스크 파일을 지우기 "전"에 막아야 한다. 롤백은 DB만 되돌리고 삭제된 파일은 되돌리지 못한다.
         if (approval.getApprovalStatus() != ApprovalStatus.TEMP_SAVED) {
@@ -181,13 +198,21 @@ public class ApprovalCommandService {
      * <p>
      * 승인은 <b>모든 결재자가 승인</b>했을 때에만 전체 결재를 승인으로 바꾼다(순번 인덱스 판정 아님).
      * 반려는 순서와 무관하게 즉시 전체 결재를 반려로 바꾼다.
+     *
+     * @param memberId 호출자 사번(인증 정보에서 추출). 지정 결재자 본인만 처리할 수 있다.
      */
-    public ApproverDTO processApprover(String approverNo, ApproverDTO approverDTO) {
+    public ApproverDTO processApprover(String approverNo, ApproverDTO approverDTO, int memberId) {
 
         log.info("결재 처리 : " + approverNo);
 
         Approver approver = approverRepository.findByApproverNo(approverNo)
                 .orElseThrow(() -> new BusinessException(ErrorCode.APPROVER_NOT_FOUND));
+
+        //지정 결재자 본인이 아니면 상태를 해석하기 전에 막는다.
+        //처리자는 Approver 행의 memberId 로 기록되므로, 막지 않으면 남의 이름으로 감사 기록이 남는다.
+        if (approver.getMemberId() != memberId) {
+            throw new BusinessException(ErrorCode.APPROVAL_UNAUTHORIZED);
+        }
 
         String approvalNo = approver.getApprovalNo();
 
@@ -220,10 +245,20 @@ public class ApprovalCommandService {
     /**
      * 전자결재 삭제.
      * 중간에 실패하면 예외를 전파해 트랜잭션 전체를 롤백한다(부분 삭제 커밋 금지).
+     *
+     * @param memberId 호출자 사번(인증 정보에서 추출). 기안자 본인만 삭제할 수 있다.
      */
-    public boolean delete(String approvalNo) {
+    public boolean delete(String approvalNo, int memberId) {
 
         log.info("전자결재 삭제 : " + approvalNo);
+
+        //디스크 파일 삭제보다 "앞"이다. 롤백은 DB만 되돌리고 삭제된 파일은 되돌리지 못한다.
+        Approval approval = approvalRepository.findById(approvalNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.APPROVAL_NOT_FOUND));
+
+        if (approval.getMemberId() != memberId) {
+            throw new BusinessException(ErrorCode.APPROVAL_UNAUTHORIZED);
+        }
 
         approvalFileService.deleteByApprovalNo(approvalNo);      //첨부파일 디스크 삭제
         attachmentRepository.deleteByApprovalNo(approvalNo);     //첨부파일 DB 삭제

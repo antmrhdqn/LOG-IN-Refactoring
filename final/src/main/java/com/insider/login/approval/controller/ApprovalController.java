@@ -95,10 +95,12 @@ public class ApprovalController {
                                                           @RequestPart(name = "approvalDTO") ApprovalDTO approvalDTO,
                                                           @RequestPart(name = "multipartFile", required = false) List<MultipartFile> multipartFile) {
 
-        approvalDTO.setApprovalNo(approvalNo);
-        approvalDTO.setMemberId(getCurrentMemberId());
+        int memberId = getCurrentMemberId();
 
-        ApprovalDTO result = approvalCommandService.resaveTempSaved(approvalNo, approvalDTO, multipartFile);
+        approvalDTO.setApprovalNo(approvalNo);
+        approvalDTO.setMemberId(memberId);
+
+        ApprovalDTO result = approvalCommandService.resaveTempSaved(approvalNo, approvalDTO, multipartFile, memberId);
         log.info("결재 임시저장 수정 성공: " + result.getApprovalNo());
         return ResponseEntity.ok(ResponseMessage.success("결재 임시저장 수정 결과 성공", result));
 
@@ -109,10 +111,12 @@ public class ApprovalController {
     public ResponseEntity<ResponseMessage<ApprovalDTO>> insertApproval(@RequestPart("approvalDTO") ApprovalDTO approvalDTO,
                                                       @RequestPart(value = "multipartFile", required = false) List<MultipartFile> multipartFile) {
 
-        approvalDTO.setMemberId(getCurrentMemberId());
+        int memberId = getCurrentMemberId();
+
+        approvalDTO.setMemberId(memberId);
 
         //채번, 임시저장 -> 기안 전환 판정, 결재선·참조선 구성은 서비스가 책임진다
-        ApprovalDTO result = approvalCommandService.draft(approvalDTO, multipartFile);
+        ApprovalDTO result = approvalCommandService.draft(approvalDTO, multipartFile, memberId);
         log.info("결재 기안 성공: " + result.getApprovalNo());
         return ResponseEntity.ok(ResponseMessage.success("전자결재 기안 성공", result));
 
@@ -124,7 +128,7 @@ public class ApprovalController {
                                                       @RequestBody ApproverDTO approverDTO) {
 
         return ResponseEntity.ok(ResponseMessage.success("전자결재" + approverDTO.getApproverStatus() + "처리 완료",
-                approvalCommandService.processApprover(approverNo, approverDTO)));
+                approvalCommandService.processApprover(approverNo, approverDTO, getCurrentMemberId())));
     }
 
     @Tag(name = "전자결재 삭제", description = "전자결재 임시저장 삭제")
@@ -132,7 +136,7 @@ public class ApprovalController {
     public ResponseEntity<ResponseMessage<Boolean>> deleteApproval(@PathVariable(name = "approvalNo") String approvalNo) {
 
         return ResponseEntity.ok(ResponseMessage.success("전자결재 삭제 성공",
-                approvalCommandService.delete(approvalNo)));
+                approvalCommandService.delete(approvalNo, getCurrentMemberId())));
     }
 
 
