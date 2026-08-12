@@ -1,6 +1,7 @@
 package com.insider.login.approval.controller;
 
 import com.insider.login.approval.dto.*;
+import com.insider.login.approval.entity.Attachment;
 import com.insider.login.approval.service.ApprovalCommandService;
 import com.insider.login.approval.service.ApprovalQueryService;
 import com.insider.login.approval.service.file.ApprovalFileService;
@@ -56,7 +57,8 @@ public class ApprovalController {
     @GetMapping("/approvals/{approvalNo}")
     public ResponseEntity<ResponseMessage<ApprovalDTO>> selectApprovalByNo(@PathVariable(name = "approvalNo") String approvalNo) {
 
-        return ResponseEntity.ok(ResponseMessage.success("전자결재 상세 조회 성공", approvalQueryService.getApproval(approvalNo)));
+        return ResponseEntity.ok(ResponseMessage.success("전자결재 상세 조회 성공",
+                approvalQueryService.getApproval(approvalNo, getCurrentMemberId())));
 
     }
 
@@ -161,8 +163,13 @@ public class ApprovalController {
                                                  @RequestParam(name = "fileSavename") String fileSavename,
                                                  @RequestParam(name = "fileOriname") String fileOriname){
 
+        //열람 권한 판정 (기안자·결재자·참조자만). 없는 저장명·권한 없음 모두 404/AP007 이다
+        Attachment attachment = approvalQueryService.getReadableAttachment(fileSavename, getCurrentMemberId());
+
         //fileSavepath 는 요청 형태 유지를 위해 받기만 하고 사용하지 않는다(베이스 경로는 파일 서비스가 소유)
-        ApprovalFileService.FileDownload fileDownload = approvalFileService.loadAsResource(fileSavename, fileOriname);
+        //저장명·원본명도 요청 파라미터가 아니라 DB 값을 넘긴다 — 경로 이탈이 성립하지 않게 한다
+        ApprovalFileService.FileDownload fileDownload = approvalFileService.loadAsResource(
+                attachment.getFileSavename(), attachment.getFileOriname());
 
         //HttpHeaders 설정
         HttpHeaders headers = new HttpHeaders();

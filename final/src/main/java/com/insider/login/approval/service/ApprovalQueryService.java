@@ -147,8 +147,49 @@ public class ApprovalQueryService {
         return memberDTOList;
     }
 
-    //한 전자결재 조회
-    public ApprovalDTO getApproval(String approvalNo) {
+    //한 전자결재 상세 조회 (외부 진입점 — 열람 권한을 검증한다)
+    //존재를 알려주지 않기 위해 권한 없음도 "없음"과 같은 404로 막는다. 구분은 로그에만 남긴다
+    public ApprovalDTO getApproval(String approvalNo, int memberId) {
+
+        Approval approval = approvalRepository.findById(approvalNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.APPROVAL_NOT_FOUND));
+
+        if (!canRead(approval, memberId)) {
+            log.warn("결재 상세 열람 권한 없음 - approvalNo: {}, memberId: {}", approvalNo, memberId);
+            throw new BusinessException(ErrorCode.APPROVAL_NOT_FOUND);
+        }
+
+        return getApproval(approvalNo);
+    }
+
+    //결재 열람 권한 판정 — 기안자·결재자·참조자만 true. role(ADMIN 등)은 보지 않고 관계만 본다
+    //임시저장 검사가 결재선·참조선 검사보다 앞이어야 한다 — 상신 전 초안에도 결재선이 저장돼 있다
+    private boolean canRead(Approval approval, int memberId) {
+
+        //기안자 (apr000 관례가 아니라 Approval.memberId 로 판정한다)
+        if (approval.getMemberId() == memberId) {
+            return true;
+        }
+
+        //임시저장은 기안자 전용
+        if (approval.getApprovalStatus() == ApprovalStatus.TEMP_SAVED) {
+            return false;
+        }
+
+        //결재자
+        boolean isApprover = approverRepository.findByApprovalNo(approval.getApprovalNo()).stream()
+                .anyMatch(approver -> approver.getMemberId() == memberId);
+        if (isApprover) {
+            return true;
+        }
+
+        //참조자
+        return referencerRepository.findByApprovalNo(approval.getApprovalNo()).stream()
+                .anyMatch(referencer -> referencer.getMemberId() == memberId);
+    }
+
+    //한 전자결재 조회 (내부용 — 인가가 이미 끝난 호출부 전용. 목록은 관계로 필터링돼 있고 쓰기 경로는 자체 검증을 거친다)
+    ApprovalDTO getApproval(String approvalNo) {
 
         Approval approval = approvalRepository.findById(approvalNo)
                 .orElseThrow(() -> new BusinessException(ErrorCode.APPROVAL_NOT_FOUND));
@@ -240,6 +281,24 @@ public class ApprovalQueryService {
         }
 
         return new ApprovalDTO(approval.getApprovalNo(), approval.getMemberId(), approval.getApprovalTitle(), approval.getApprovalContent(), approval.getApprovalDate(), approval.getApprovalStatus().name(), approval.getRejectReason(), approval.getFormNo(), form.getFormName(), senderDepart.getDepartName(), senderMember.getName(), senderPosition.getPositionName(), attachment, approver, referencer, finalApproverDate, standByMemberName);
+    }
+
+    //다운로드 가능한 첨부 조회 (저장명 실재 확인 + 소속 결재의 열람 권한 판정)
+    //요청 저장명을 파일시스템에 넘기기 전에 여기서 걸러야 빈 문자열·상위 경로가 파일 서비스에 닿지 않는다
+    public Attachment getReadableAttachment(String fileSavename, int memberId) {
+
+        Attachment attachment = attachmentRepository.findByFileSavename(fileSavename)
+                .orElseThrow(() -> new BusinessException(ErrorCode.APPROVAL_FILE_NOT_FOUND));
+
+        Approval approval = approvalRepository.findById(attachment.getApprovalNo())
+                .orElseThrow(() -> new BusinessException(ErrorCode.APPROVAL_FILE_NOT_FOUND));
+
+        if (!canRead(approval, memberId)) {
+            log.warn("결재 첨부 열람 권한 없음 - approvalNo: {}, memberId: {}", attachment.getApprovalNo(), memberId);
+            throw new BusinessException(ErrorCode.APPROVAL_FILE_NOT_FOUND);
+        }
+
+        return attachment;
     }
 
     //결재 목록 페이지 조회
