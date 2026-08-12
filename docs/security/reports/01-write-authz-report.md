@@ -2,9 +2,12 @@
 
 > 작업일: 2026-07-31
 > 실행: Claude Code (Opus 5)
-> 명세: `docs/security/approval/tasks/01-write-authz.md` (**v3** — D1~D11 확정본)
+> 명세: `docs/security/tasks/01-write-authz.md` (**v3** — D1~D11 확정본)
 > 선행: 전자결재 리팩토링 7단계 완료·커밋·푸시 (`e35e0b1`(코드)·`b314778`(잔해)·`94d7a18`(문서))
 > **보안 결함 정리 스트림의 첫 작업.** 보고서 경로가 `docs/security/` 아래로 바뀌었다 (§9-2 → CLAUDE.md 갱신)
+> ⚠ **경로 이동 (2026-08-12, 작업 E 완료 후).** 이 작업의 명세·보고서가
+> `docs/security/approval/{tasks,reports}/` → `docs/security/{tasks,reports}/`로 옮겨졌다.
+> **아래 §1 표에 적힌 경로는 당시 커밋의 기록이며 고치지 않는다.**
 > **상태: 구현·빌드·수동 검증(S0~S8) 전부 완료.** 커밋·푸시만 남았다 (§9)
 
 ---

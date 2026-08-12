@@ -14,7 +14,7 @@
 3. `docs/security/tasks/{현재 작업}.md` — 지금 할 작업
 
 직전 작업의 명세·보고서도 함께 읽는다. 결정(D 항목)과 검증 방식이 그대로 선례가 된다.
-- `docs/security/tasks/03-read-authz.md` + `docs/security/approval/reports/03-read-authz-report.md`
+- `docs/security/tasks/03-read-authz.md` + `docs/security/reports/03-read-authz-report.md`
 - `docs/security/tasks/02-secret-exposure.md` + `docs/security/reports/02-secret-exposure-report.md`
 
 ### 참조 문서

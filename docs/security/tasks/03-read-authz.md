@@ -4,7 +4,7 @@
 > 선행: 작업 A(쓰기 경로 인가, `91de70c`) · 작업 B(비밀 노출 차단, `3e2db66`)
 > 기준선: `C:\temp\read-authz\baseline\` — **20항목 캡처 완료 · 결정성 검증 통과**
 > **결과: 캡처 20항목 전 항목 PASS · S2·S3 통과 · 코드 3파일 · 신규 ErrorCode 0건**
-> → `docs/security/approval/reports/03-read-authz-report.md`
+> → `docs/security/reports/03-read-authz-report.md`
 
 ---
 
@@ -423,7 +423,7 @@ ApprovalFileService.FileDownload fileDownload = approvalFileService.loadAsResour
 
 ### D9. 문서 배치 — `docs/security/tasks/03-read-authz.md`
 
-보고서는 `docs/security/approval/reports/03-read-authz-report.md`.
+보고서는 `docs/security/reports/03-read-authz-report.md`.
 
 ### D10. [E2] 판정 위치 — **`ApprovalQueryService`. 재량 아님** (v2-2)
 
@@ -495,7 +495,7 @@ DELETE FROM member_info         WHERE member_id = 999001;
 
 ### 9-4. 보고서
 
-`docs/security/approval/reports/03-read-authz-report.md`
+`docs/security/reports/03-read-authz-report.md`
 
 ---
 

@@ -1,8 +1,11 @@
 # 보안 결함 정리 — Spec
 
-> 작성: 2026-07-31 / 이동: 2026-08-12 (`docs/security/approval/spec.md` → `docs/security/spec.md`,
-> 작업 B 착수 시 D10 — 작업 A 산출물(`tasks/01-write-authz.md`·`reports/01-write-authz-report.md`)은
-> 원래 위치 `docs/security/approval/`에 그대로 둔다)
+> 작성: 2026-07-31
+> 이동 ①: 2026-08-12 (`docs/security/approval/spec.md` → `docs/security/spec.md`, 작업 B 착수 시 D10)
+> 이동 ②: 2026-08-12 (작업 E 완료 후 **평평화**) — 작업 A 산출물도
+> `docs/security/tasks/01-write-authz.md` · `docs/security/reports/01-write-authz-report.md`로 옮겼다.
+> **`docs/security/` 아래에 도메인 하위 폴더를 두지 않는다** (규칙은 `CLAUDE.md`).
+> 이동 ① 시점의 "원래 위치에 그대로 둔다"는 방침은 이동 ②로 대체됐다.
 > 선행: 전자결재 도메인 리팩토링 7단계 완료 (`docs/refactoring/completed/approval-domain.md`)
 > 근거: 완료 보고서 §4 🔴 / `reports/07-controller-report.md` §6-2 / 2026-07-31 실측 (§3)
 > **이것은 리팩토링이 아니다.** 새 작업 스트림이며, `plan.md`는 이번 규모에 불필요하여 본 문서에 흡수했다.
@@ -103,7 +106,7 @@ spec `[A-확장]`은 "회수 API에 인증 정보가 없다"를 지적했고 단
 
 | 작업 | 내용 | 도메인 | 상태 |
 |---|---|---|---|
-| **A** | **쓰기 경로 권한 경계 4건** | `approval/**` | **완료** — `docs/security/approval/tasks/01-write-authz.md` |
+| **A** | **쓰기 경로 권한 경계 4건** | `approval/**` | **완료** — `docs/security/tasks/01-write-authz.md` |
 | **B** | 비밀 정보 노출 차단(`jwt.key`·DB 계정 평문 / 응답 `password` **9지점** / 로그 **13지점**) + 비밀번호 경로 2종(`resetPassword`·`updateOwnPassword`) 인가 | `resources/`, `member/**`, `auth/**`, `approval/dto`(1파일), **`commute/**`** | **완료** — `tasks/02-secret-exposure.md` (구 B+C 통합, `commute` 도메인 편입 — 이유는 해당 문서 §2·D13) |
 | **E** | **읽기 경로 인가 — 상세 조회·파일 다운로드** | `approval/**` | **완료** — `tasks/03-read-authz.md` · 정책 확정(D1~D10) 후 착수 (§4-4) |
 | D | 등재만 — 저장형 XSS, 인증 실패 200, CORS 전역 개방, 상태값 불일치 외 | — | §4-3 |
@@ -250,7 +253,7 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 저장명 열거와 경로 이탈은 **별도 조항 없이** `Attachment` 조회 단계가 구조적으로 닫았다
 (요청 파라미터가 파일시스템에 닿지 않는다).
 
-보고서: `docs/security/approval/reports/03-read-authz-report.md`
+보고서: `docs/security/reports/03-read-authz-report.md`
 
 > 이 항목을 등재했던 이유는 §1의 경계 그 자체였다 — **"열거에 없으니 없는 문제"로 읽히는 것을 막는다.**
 > 실제로 착수 후 실측에서 초안이 몰랐던 두 결함이 나왔다.
@@ -344,10 +347,10 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 ---
 
 ## 9. 참조
-
 | 문서 | 용도 |
 |---|---|
 | `docs/refactoring/completed/approval-domain.md` | §4 이월 목록 — 이 작업의 출발점 |
 | `docs/refactoring/approval/reports/07-controller-report.md` | §6-2 제3자 승인 실측 원문 |
 | `docs/refactoring/approval/spec.md` | `[A-확장]`이 왜 회수 API에만 적용됐는지 |
 | `docs/reference/leave-pattern.md` | ⚠ §9 `ErrorCode` 예시는 실물과 인자 순서가 다르다. 실물은 `(int status, String code, String message)` |
+| **`docs/security/tools/capture-authz.ps1`** | **인가 작업 공용 검증 도구** — 응답 기준선 캡처 · SHA256 대조 · 키 순서 정규화 재판정. 작업 E에서 처음 사용(20항목). 매트릭스(`Get-Matrix`)만 갈아끼우면 다른 작업에 재사용된다.<br>⚠ 토큰(`tokens.ps1`)과 캡처물은 **리포 밖**(`C:\temp\`)에 둔다 — PII·실제 저장명·서버 경로가 들어간다 |
