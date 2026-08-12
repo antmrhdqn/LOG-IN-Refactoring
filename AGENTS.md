@@ -13,25 +13,45 @@
 2. `docs/security/spec.md` — 무엇을, 왜 (plan은 spec에 흡수)
 3. `docs/security/tasks/{현재 작업}.md` — 지금 할 작업
 
+직전 작업의 명세·보고서도 함께 읽는다. 결정(D 항목)과 검증 방식이 그대로 선례가 된다.
+- `docs/security/tasks/03-read-authz.md` + `docs/security/approval/reports/03-read-authz-report.md`
+- `docs/security/tasks/02-secret-exposure.md` + `docs/security/reports/02-secret-exposure-report.md`
+
 ### 참조 문서
 - 현황 (Before): `docs/refactoring/approval/as-is.md`
 - 목표 구조: `docs/refactoring/approval/target-structure.md`
 - 휴가 도메인 패턴: `docs/reference/leave-pattern.md` (결재가 따를 레퍼런스)
 
 ### 현재 진행 작업
-**작업 B: 비밀 정보 노출 차단 · 비밀번호 경로 인가** — `docs/security/tasks/02-secret-exposure.md`
-(작업 A 쓰기 경로 권한 경계 정리 완료·커밋·푸시 — `91de70c`(코드)·`8731d37`(문서), origin/main 동기화)
+**작업 E 완료.** 다음 작업 미정 — `docs/security/spec.md` §4-3·§4-4의 후속 후보에서 선정한다.
+
+직전 완료: **작업 E 읽기 경로 인가** — `docs/security/tasks/03-read-authz.md`
+(코드 3파일 / 캡처 20항목 전 항목 PASS / 신규 ErrorCode 0건)
 
 ### 작업 로드맵
 ```
 전자결재 리팩토링 1~7 ✅ 전부 완료 (docs/refactoring/completed/approval-domain.md)
 
 보안 결함 정리
-A. 쓰기 경로 권한 경계 정리 ✅
-B. 비밀 정보 노출 차단 · 비밀번호 경로 인가 (현재)  ※ 구 B + 구 C 통합, commute 도메인 포함
-E. 읽기 경로 인가 (정책 결정 선행)
+A. 쓰기 경로 권한 경계 정리 ✅  91de70c(코드) · 8731d37(문서)
+B. 비밀 정보 노출 차단 · 비밀번호 경로 인가 ✅  3e2db66(코드) · 4c2b50b(문서) · b00e2c6(spec 정정)
+   ※ 구 B + 구 C 통합, commute 도메인 포함
+E. 읽기 경로 인가 (결재 상세 · 첨부 다운로드) ✅  ← 방금 완료
 D. 등재만 — XSS · 인증 실패 200 · CORS · 상태값 불일치 · insite 무성 0건
+
+후속 후보 (미착수)
+- member/** · commute/** 읽기 경로 인가 (GET /members/{id}, /api/rooms/members, /commutes)
+- GET /approvals/members* 인가 (회원 조회, 결재 문서 아님)
+- TestController 엔드포인트 제거 · 인증 실패 200 → 401 · CORS 전역 개방
 ```
+
+### 작업 E에서 확정된 것 (후속 작업이 따를 선례)
+
+- **읽기 차단은 404, 쓰기 차단은 403.** 읽기는 GET이라 열거 비용이 0이므로 존재를 은폐한다
+- **인가 판정은 관계로만 한다.** role(ADMIN/MEMBER) 분기를 넣지 않는다 — ADMIN도 관계 없으면 차단
+- **인가는 새 public 진입점에 넣고, 기존 내부용 메서드는 package-private으로 낮춘다.**
+  목록 조회가 상세 조회 메서드를 항목마다 호출하므로, 기존 메서드에 인가를 넣으면 목록이 통째로 깨진다
+- **응답 구조는 바꾸지 않는다.** 전부 아니면 전무 — 부분 권한 개념을 만들지 않는다
 
 ## 완료된 리팩토링
 - 전역 에러 처리: `docs/refactoring/completed/error-handling.md`

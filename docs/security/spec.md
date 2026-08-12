@@ -104,8 +104,8 @@ spec `[A-확장]`은 "회수 API에 인증 정보가 없다"를 지적했고 단
 | 작업 | 내용 | 도메인 | 상태 |
 |---|---|---|---|
 | **A** | **쓰기 경로 권한 경계 4건** | `approval/**` | **완료** — `docs/security/approval/tasks/01-write-authz.md` |
-| **B** | 비밀 정보 노출 차단(`jwt.key`·DB 계정 평문 / 응답 `password` **9지점** / 로그 **13지점**) + 비밀번호 경로 2종(`resetPassword`·`updateOwnPassword`) 인가 | `resources/`, `member/**`, `auth/**`, `approval/dto`(1파일), **`commute/**`** | **이번 명세** — `tasks/02-secret-exposure.md` (구 B+C 통합, `commute` 도메인 편입 — 이유는 해당 문서 §2·D13) |
-| **E** | **읽기 경로 인가 — 상세 조회·파일 다운로드** | `approval/**` | 후속 · **정책 결정 선행** (§4-4) |
+| **B** | 비밀 정보 노출 차단(`jwt.key`·DB 계정 평문 / 응답 `password` **9지점** / 로그 **13지점**) + 비밀번호 경로 2종(`resetPassword`·`updateOwnPassword`) 인가 | `resources/`, `member/**`, `auth/**`, `approval/dto`(1파일), **`commute/**`** | **완료** — `tasks/02-secret-exposure.md` (구 B+C 통합, `commute` 도메인 편입 — 이유는 해당 문서 §2·D13) |
+| **E** | **읽기 경로 인가 — 상세 조회·파일 다운로드** | `approval/**` | **완료** — `tasks/03-read-authz.md` · 정책 확정(D1~D10) 후 착수 (§4-4) |
 | D | 등재만 — 저장형 XSS, 인증 실패 200, CORS 전역 개방, 상태값 불일치 외 | — | §4-3 |
 
 ### 4-1. 작업 B (전반부) — `jwt.key`·비밀번호 경로. A의 신뢰 기반이지만, 실질 긴급도는 낮다
@@ -182,29 +182,78 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 | `CommuteController`가 응답 맵에서 원본 컬렉션 키(`member`/`members`/`notice`)를 제거하지 않는 구조 | `CommuteController.java` 다수 지점 | Controller가 `getName()`만 꺼내 쓰면서 원본을 맵에 남겨 컬렉션 전체가 응답에 실린다. `tasks/02` D13 — **작업 B는 필드(직렬화)만 막고 키 구조는 그대로 뒀다** |
 | `CommuteController:232~234` 부서 전체 PII 대량 출력 | `GET /corrections` 부서별 분기에서 `responseMap.forEach(println)` | `password`는 작업 B의 `@ToString(exclude)`로 닫혔으나, **부서원 전원의 이름·주소·연락처·이메일**이 콘솔에 남는다. 비밀 정보가 아니라 작업 B 범위 밖으로 판정 (`reports/02` §4) |
 | 프로필 이미지가 CWD 의존 **상대 경로**로 저장 | `FRONT-LOGIN/public/img`를 가리키는 상대 경로. `file.upload-dir`(`C:/login/`)을 쓰지 않는다 | `bootRun` 실행 위치에 따라 **리포 안에 사용자 업로드 파일이 쌓인다**(작업 B 검증 중 `final_clone2/` 생성·삭제). 후속 과제 둘: 저장 경로 교정 / `.gitignore` 등재 — 작업 B는 D2로 `.gitignore` 무변경 확정 (`reports/02` §4) |
-| 이월분 | `[K]` 재시도, `receivedAll` 미구현, `finalApproverDate` 의미, `[E]`, tx↔디스크 원자성, 테스트 부재 | 완료 보고서 §4 |
+| **`AttachmentDTO`가 서버 절대 경로를 응답에 싣는다** | `ApprovalQueryService`의 상세 조회 첨부 매핑 — `fileSavepath`(= `UPLOAD_DIR + FILE_DIR`) | 작업 E D5(응답 축소 안 함)에 따라 유지. **작업 E 이후 관계자만 보게 되어 등급은 내려갔다** (`reports/03` §7) |
+| **`finalApproverDate`가 임시저장 문서에 찍힌다** | 상세 조회의 최종 승인일 계산 분기 | 결재선 모양이 같은 `PROCESSING` 문서는 `""`인데 `TEMP_SAVED`는 값이 들어간다. **원인 미확인.** 작업 E 기준선 캡처에서 실측 (`tasks/03` §3-4) |
+| **ADMIN·감사 role의 전체 열람** | — | 작업 E D2가 **도입하지 않기로 확정**했다. 부서장·감사 role은 스키마 영향이 있고, ADMIN 예외는 취약점을 role 하나 뒤로 물릴 뿐이다 (`tasks/03` §7 D2) |
+| **기안자 본인을 참조선에 등록할 수 있다** | 기안·재임시저장 시 `referencer`에 기안자 사번을 넣으면 그대로 저장된다 | 작업 E S2 스모크에서 관찰. 기능상 무해(열람 판정은 기안자 단계에서 이미 통과)하나 서버가 막지 않는다. **코드 대조 없이 관찰만** (`reports/03` §6-1) |
+| 이월분 | `[K]` 재시도, `receivedAll` 미구현, `finalApproverDate` 의미, `[E]`, tx↔디스크 원자성, 테스트 부재 | 완료 보고서 §4. **`receivedAll` 미구현은 작업 E에서 400/C001로 실측 확인**됐고, 상세가 목록보다 넓은 이유가 여기에 있다 (`tasks/03` D3) |
 
 > **작업 B(`3e2db66`·`4c2b50b`) 이후 갱신.** 위 항목 중 `showAllMembersPage` 무인증·CORS 전역 개방·
 > `TestController` 500·`JwtTokenInterceptor` 도달 불가는 **작업 B 검증에서 실측으로 재확인**됐다.
 > 나머지는 코드 대조 수준의 등재이며 실측되지 않았다 — **이 구분을 유지할 것.**
+>
+> **작업 E 이후 갱신.** `finalApproverDate` 임시저장 이상·`receivedAll` 400/C001·기안자 참조선 등록은
+> **작업 E 기준선 캡처와 스모크에서 실측**됐다. `AttachmentDTO` 절대 경로·ADMIN 열람은 코드 대조 및
+> 정책 결정 결과다.
+>
+> ⚠ `GET /showAllMembersPage` 무인증 행의 "인증 추가는 작업 E의 정책 결정에 속한다"는 서술은
+> **더 이상 유효하지 않다.** 작업 E는 `approval/**` 읽기 경로만 다뤘고, `member/**`·`commute/**`의
+> 읽기 인가는 **후속 과제로 남아 있다** (§4-4 경계 참조).
 
-### 4-4. 작업 E — 읽기 경로 인가 (신설)
+### 4-4. 작업 E — 읽기 경로 인가 ✅ **완료 (2026-08-12)**
 
 작업 A의 명세 리뷰 중, 같은 훑기에서 **읽기 경로에도 인가가 없음**이 확인됐다.
 
 | 지점 | 내용 |
 |---|---|
-| `ApprovalController:56~61` | `GET /approvals/{approvalNo}` — 기안자·결재자·참조자 여부를 **묻지 않는다.** `memberId`를 아예 받지 않고 본문 전문·결재선·참조선·첨부 목록을 반환한다 |
-| `ApprovalController:154~172` + `ApprovalFileService:123~153` | `GET /approvals/files` — `fileSavename`만 있으면 내려준다. 권한 검사 0줄. savename은 UUID라 추측 불가하지만 **위 상세 조회 응답에 그대로 실린다** |
+| `ApprovalController:54~61` | `GET /approvals/{approvalNo}` — 기안자·결재자·참조자 여부를 **묻지 않는다.** `memberId`를 아예 받지 않고 본문 전문·결재선·참조선·첨부 목록을 반환한다 |
+| `ApprovalController:165` + `ApprovalFileService:125` | `GET /approvals/files` — `fileSavename`만 있으면 내려준다. 권한 검사 0줄. savename은 UUID라 추측 불가하지만 **위 상세 조회 응답에 그대로 실린다** |
 
 → §3-3의 "결재번호가 완전히 추측 가능하다"가 **쓰기뿐 아니라 열람에도 그대로 적용된다.**
 유효한 토큰 하나로 전사 결재의 본문과 첨부를 열람할 수 있다.
 
-**작업 A에 넣지 않는 이유**: "누가 결재를 열람할 수 있는가"는 **정책 결정**이다
+**작업 A에 넣지 않은 이유**: "누가 결재를 열람할 수 있는가"는 **정책 결정**이다
 (기안자 + 결재자 + 참조자만? 부서장은? 감사 목적 열람은?). 그 결정에 따라 목록 조회와
-상세 조회의 동작이 함께 바뀌므로 별도 명세가 필요하다.
+상세 조회의 동작이 함께 바뀌므로 별도 명세로 분리했다.
 
-> 이 항목을 등재하는 이유는 §1의 경계 그 자체다 — **"열거에 없으니 없는 문제"로 읽히는 것을 막는다.**
+#### 착수 후 실측으로 드러난 것 — 초안 시점보다 심각했다
+
+기준선 캡처 20항목(`tasks/03-read-authz.md` §3)에서 **첨부 경로가 초안의 서술을 넘어선다**는 것이
+확인됐다.
+
+| 실측 | 내용 |
+|---|---|
+| 저장명 전수 노출 | `fileSavename=`(빈 문자열)로 요청하면 `resolve("")`가 업로드 디렉터리 자신을 가리키고, `UrlResource.exists()`가 디렉터리에 `true`를 돌려줘 **파일명 목록 전체가 200으로 나갔다** |
+| 베이스 경로 이탈 | `fileSavename=..`도 같은 이유로 **베이스 경로 밖을 서빙**했다. `normalize()`는 있으나 포함 검사가 없다 |
+
+→ "savename은 UUID라 추측 불가"가 **사실상 유일한 보호였는데, 그 전제가 성립하지 않았다.**
+목록 확보 → 임의 첨부 획득으로 이어지는 결합 경로가 존재했다.
+
+#### 확정된 정책 (D1~D10 — 상세는 `tasks/03-read-authz.md` §7)
+
+| # | 결정 |
+|---|---|
+| 열람 주체 | **기안자 + 결재자 + 참조자.** role 예외 없음 — **ADMIN도 관계 없으면 차단** |
+| 상태 종속 | 관계 존재 기준. 승인·반려·회수 후에도 유지. 단 **`TEMP_SAVED`는 기안자 전용** |
+| 목록과의 관계 | 상세가 목록보다 **약간 넓다.** `receivedAll` 미구현으로 결재를 마친 문서가 목록에 없기 때문 |
+| 차단 응답 | **404** (상세 AP001 / 파일 AP007). 읽기는 GET이라 열거 비용이 0이므로 존재를 은폐한다. **쓰기 403/AP003은 그대로 유지** |
+| 파일 | 문서 열람 권한과 동일. `savename` → `Attachment` 조회 → 소속 결재 → 관계 판정 |
+| 응답 축소 | **하지 않는다.** 전부 아니면 전무 |
+| 신규 ErrorCode | **0건** |
+
+부서장 열람·감사 role은 스키마 영향이 있어 도입하지 않았다 → §4-3 등재.
+
+#### 결과
+
+코드 3파일(`ApprovalController`·`ApprovalQueryService`·`AttachmentRepository`).
+캡처 20항목 전 항목 PASS + 쓰기 스모크·로그 구분 확인.
+저장명 열거와 경로 이탈은 **별도 조항 없이** `Attachment` 조회 단계가 구조적으로 닫았다
+(요청 파라미터가 파일시스템에 닿지 않는다).
+
+보고서: `docs/security/approval/reports/03-read-authz-report.md`
+
+> 이 항목을 등재했던 이유는 §1의 경계 그 자체였다 — **"열거에 없으니 없는 문제"로 읽히는 것을 막는다.**
+> 실제로 착수 후 실측에서 초안이 몰랐던 두 결함이 나왔다.
 
 ---
 
@@ -229,6 +278,14 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 
 1. **검증을 화면으로 할 수 없다.** 검증은 전부 API 직접 호출(Postman)로 수행한다
 2. **403 도입의 화면 회귀 위험이 0이다.** 정상 UI에서 `PUT /approvers`에 도달할 경로가 없다
+
+> ⚠ **정정 (2026-08-12, 작업 E S2 스모크 실측).** 위 1번은 **과대 서술이다.**
+> **정지한 것은 승인·반려(`canApproveOrReject`)에 한정된다.** 작업 E 검증에서
+> **기안(`POST /approvals`)과 회수(`PUT /approvals/{no}/status`)는 화면에서 정상 동작**함을
+> 확인했다(`reports/03` §6-1 — S2-1은 화면 임시저장, S2-4는 화면 회수).
+>
+> "화면을 전부 쓸 수 없다"로 읽으면 후속 작업이 쓸 수 있는 검증 수단을 스스로 버리게 된다.
+> **승인·반려만 API 직접 호출이 필요하다.**
 
 ---
 
