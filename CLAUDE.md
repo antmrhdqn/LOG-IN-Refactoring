@@ -11,6 +11,8 @@
   UTF-8로 저장할 것
   (예: docs/refactoring/approval/reports/07-controller-report.md,
        docs/security/approval/reports/01-write-authz-report.md)
+  도메인이 특정되지 않는 작업은 `{도메인}`을 생략한다
+  (예: docs/security/reports/02-secret-exposure-report.md)
 - 모든 명령어는 Windows / PowerShell 5.1 기준 (`.\gradlew.bat`, `Get-ChildItem`,
   백슬래시 경로). PowerShell 5.1의 `Select-String`에는 `-Recurse`/`-Include`가 없다.
 - 모든 `.md`는 UTF-8로 저장·유지할 것

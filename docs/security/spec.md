@@ -1,6 +1,8 @@
-# 전자결재(Approval) 도메인 보안 결함 정리 — Spec
+# 보안 결함 정리 — Spec
 
-> 작성: 2026-07-31
+> 작성: 2026-07-31 / 이동: 2026-08-12 (`docs/security/approval/spec.md` → `docs/security/spec.md`,
+> 작업 B 착수 시 D10 — 작업 A 산출물(`tasks/01-write-authz.md`·`reports/01-write-authz-report.md`)은
+> 원래 위치 `docs/security/approval/`에 그대로 둔다)
 > 선행: 전자결재 도메인 리팩토링 7단계 완료 (`docs/refactoring/completed/approval-domain.md`)
 > 근거: 완료 보고서 §4 🔴 / `reports/07-controller-report.md` §6-2 / 2026-07-31 실측 (§3)
 > **이것은 리팩토링이 아니다.** 새 작업 스트림이며, `plan.md`는 이번 규모에 불필요하여 본 문서에 흡수했다.
@@ -101,13 +103,12 @@ spec `[A-확장]`은 "회수 API에 인증 정보가 없다"를 지적했고 단
 
 | 작업 | 내용 | 도메인 | 상태 |
 |---|---|---|---|
-| **A** | **쓰기 경로 권한 경계 4건** | `approval/**` | **이번 명세** — `tasks/01-write-authz.md` |
-| **B** | `jwt.key` 평문 커밋 + `PUT /resetPassword/{memberId}` 인가 부재 | `resources/`, `member/**` | **A 직후** (§4-1) |
-| C | 응답 `password` 노출 4지점 + 로그 위생 | `approval/dto`, `member/**`, `auth/**`, `common/utils/**` | 후속 (§4-2) |
+| **A** | **쓰기 경로 권한 경계 4건** | `approval/**` | **완료** — `docs/security/approval/tasks/01-write-authz.md` |
+| **B** | 비밀 정보 노출 차단(`jwt.key`·DB 계정 평문 / 응답 `password` **9지점** / 로그 **13지점**) + 비밀번호 경로 2종(`resetPassword`·`updateOwnPassword`) 인가 | `resources/`, `member/**`, `auth/**`, `approval/dto`(1파일), **`commute/**`** | **이번 명세** — `tasks/02-secret-exposure.md` (구 B+C 통합, `commute` 도메인 편입 — 이유는 해당 문서 §2·D13) |
 | **E** | **읽기 경로 인가 — 상세 조회·파일 다운로드** | `approval/**` | 후속 · **정책 결정 선행** (§4-4) |
 | D | 등재만 — 저장형 XSS, 인증 실패 200, CORS 전역 개방, 상태값 불일치 외 | — | §4-3 |
 
-### 4-1. 작업 B — A의 신뢰 기반이지만, 실질 긴급도는 낮다
+### 4-1. 작업 B (전반부) — `jwt.key`·비밀번호 경로. A의 신뢰 기반이지만, 실질 긴급도는 낮다
 
 ```
 application.yml:44   jwt.key: ‹평문 커밋됨›
@@ -132,10 +133,15 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 작업 B의 결정 항목: 키 로테이션 시 **발급된 모든 토큰이 즉시 무효**가 되고(만료 24h, 블랙리스트 없음),
 **git 히스토리에 남은 키는 파일 수정으로 지워지지 않는다.**
 
-### 4-2. 작업 C를 분리하는 이유
+### 4-2. 작업 B (후반부, 구 작업 C) — 응답 `password` 노출 + 로그 위생
 
 완료 보고서 §4 🔴 2는 `GET /approvals/members*`의 `password` 노출을 지적했다.
 그러나 조사 결과 **같은 결함이 결재 도메인 밖에도 있다.**
+
+> ⚠ **정정 (2026-08-12, `tasks/02-secret-exposure.md` v3 확정).** 아래 4지점은 초안 시점의
+> 일부 목록이다. 이후 `commute/**`(3경로)와 `getTokenInfo`가 추가로 확인돼 **총 9지점**이 됐고,
+> 전수 목록·라인 번호·기준선 실측은 `tasks/02-secret-exposure.md` §3-2에 있다. 이 절의 4지점
+> 표는 **역사적 기록으로만 남긴다.**
 
 | 지점 | 내용 |
 |---|---|
@@ -148,6 +154,9 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 또한 응답 `password` 제거는 **응답 JSON 구조 변경**이라, 응답 불변을 지켜온 A와 검증 성격이 다르다.
 
 함께 닫을 로그 위생 (완료 보고서 §4 ⚪의 "해시 3곳"은 과소집계였다):
+
+> ⚠ **정정 (2026-08-12).** 아래는 초안 시점 집계다. 확정 집계(활성 11건 + 도달 불가 2건 + `toString()`
+> 마스킹 5파일)는 `tasks/02-secret-exposure.md` §4 [B4]에 있다.
 
 - **평문 비밀번호 4곳** — `CustomAuthenticationProvider:35`, `MemberController:317`(신규 비밀번호 2개 + 현재),
   `MemberController:477`, `MemberService:272`
@@ -167,6 +176,11 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 | `TestController` 잔존 | `/test`·`/getMemberInfo`·`/getToken` — 프로덕션 소스 | |
 | **결재 처리 기능 정지** | 서버는 영문 Enum 응답, 프론트는 한글 비교 | §5 |
 | **`insite` 집계의 무성 0건 의심** | `InsiteRepository:34·37`이 `'처리 중'`·`'대기'` **한글 리터럴**로 비교한다. 단계 1 이후 컬럼값은 `PROCESSING`·`PENDING`이다 | **단계 1.5 `[M]`과 동일 계열.** `insite`는 쓰기 0건이라 작업 A 범위 밖이나, DB 실측 필요 |
+| `GET /showAllMembersPage`가 무인증(전 사원 90명 조회 가능) | `roleLessList`에 없는데도 실제로는 게이트가 이 URI 하나뿐 | `tasks/02-secret-exposure.md` R11 — 인증 추가는 작업 E |
+| `ModelMapper`의 `setAmbiguityIgnored(true)` 전역 영향 | `config/BeanConfig.java:29` | `tasks/02` R6 |
+| `TestController`가 비-ADMIN 요청에 403이 아니라 500을 반환 | `@PreAuthorize` 거부가 예외로 처리되지 않음 | `tasks/02` D12 |
+| `CommuteController`가 응답 맵에서 원본 컬렉션 키(`member`/`members`/`notice`)를 제거하지 않는 구조 | `CommuteController.java` 다수 지점 | `tasks/02` D13 — 작업 B는 필드(직렬화)만 막고 키 구조는 그대로 둔다 |
+| CORS 전역 개방 (`Access-Control-Allow-Origin: *`) | 작업 B 파괴적 실측(E-1·E-2) 응답 헤더에서 재확인 | `tasks/02` §3-5 |
 | 이월분 | `[K]` 재시도, `receivedAll` 미구현, `finalApproverDate` 의미, `[E]`, tx↔디스크 원자성, 테스트 부재 | 완료 보고서 §4 |
 
 ### 4-4. 작업 E — 읽기 경로 인가 (신설)

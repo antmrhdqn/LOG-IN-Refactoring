@@ -10,8 +10,8 @@
 
 ### 필수 읽기 순서 (작업 시작 전)
 1. `docs/refactoring/completed/approval-domain.md` — 리팩토링 최종 기록 (§4 이월 목록이 출발점)
-2. `docs/security/approval/spec.md` — 무엇을, 왜 (plan은 spec에 흡수)
-3. `docs/security/approval/tasks/{현재 작업}.md` — 지금 할 작업
+2. `docs/security/spec.md` — 무엇을, 왜 (plan은 spec에 흡수)
+3. `docs/security/tasks/{현재 작업}.md` — 지금 할 작업
 
 ### 참조 문서
 - 현황 (Before): `docs/refactoring/approval/as-is.md`
@@ -19,17 +19,16 @@
 - 휴가 도메인 패턴: `docs/reference/leave-pattern.md` (결재가 따를 레퍼런스)
 
 ### 현재 진행 작업
-**작업 A: 쓰기 경로 권한 경계 정리** — `docs/security/approval/tasks/01-write-authz.md`
-(전자결재 리팩토링 7단계 전부 완료·커밋·푸시 — `e35e0b1`(코드)·`b314778`(잔해)·`94d7a18`(문서), origin/main 동기화)
+**작업 B: 비밀 정보 노출 차단 · 비밀번호 경로 인가** — `docs/security/tasks/02-secret-exposure.md`
+(작업 A 쓰기 경로 권한 경계 정리 완료·커밋·푸시 — `91de70c`(코드)·`8731d37`(문서), origin/main 동기화)
 
 ### 작업 로드맵
 ```
 전자결재 리팩토링 1~7 ✅ 전부 완료 (docs/refactoring/completed/approval-domain.md)
 
 보안 결함 정리
-A. 쓰기 경로 권한 경계 정리 (현재)
-B. jwt.key 평문 커밋 · resetPassword 인가 (병행)
-C. 응답 password 노출 · 로그 위생
+A. 쓰기 경로 권한 경계 정리 ✅
+B. 비밀 정보 노출 차단 · 비밀번호 경로 인가 (현재)  ※ 구 B + 구 C 통합, commute 도메인 포함
 E. 읽기 경로 인가 (정책 결정 선행)
 D. 등재만 — XSS · 인증 실패 200 · CORS · 상태값 불일치 · insite 무성 0건
 ```
