@@ -170,18 +170,23 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 | 항목 | 지점 | 비고 |
 |---|---|---|
 | 저장형 XSS | `ApprovalDetail.js:198` `dangerouslySetInnerHTML` + 서버 sanitize 0건 | 의존성 추가·허용 태그 정책·기존 데이터 처리가 붙는다 |
-| 인증 실패가 HTTP 200 | `JwtAuthorizationFilter:115~124`, `CustomAuthFailureHandler:20~66` | `setStatus()` 미호출. 본문에만 `{"status":401}` |
-| CORS 전역 개방 | `HeaderFilter:14` `Allow-Origin: *`, `WebConfig`의 origin 제한보다 앞선다 | |
-| 죽은/무효 권한 코드 | `Position.java:11` `@PreAuthorize` (엔티티라 무효 + SpEL 오류), `JwtTokenInterceptor` 도달 불가 | |
-| `TestController` 잔존 | `/test`·`/getMemberInfo`·`/getToken` — 프로덕션 소스 | |
+| 인증 실패가 HTTP 200 | `JwtAuthorizationFilter:115~124`, `CustomAuthFailureHandler:20~66` | `setStatus()` 미호출. 본문에만 `{"status":401}`. **작업 B 검증에서 재확인** — 만료·미제시 토큰이 200으로 나가 캡처·검증 시 성공으로 오판할 수 있다 (`tasks/02` R16) |
+| CORS 전역 개방 | `HeaderFilter:14` `Allow-Origin: *`, `WebConfig`의 origin 제한보다 앞선다 | 작업 B 파괴적 실측(E-1·E-2) 응답 헤더에서 **재확인** — `tasks/02` §3-5 |
+| 죽은/무효 권한 코드 | `Position.java:11` `@PreAuthorize` (엔티티라 무효 + SpEL 오류), `JwtTokenInterceptor` 도달 불가 | `JwtTokenInterceptor`의 도달 불가는 작업 B에서 **직접 확인**됐다 — `WebConfig`가 `@Bean`으로 객체만 만들고 `addInterceptors()` 오버라이드가 코드베이스 어디에도 없다 (`reports/02` §4) |
+| `TestController` 잔존 | `/test`·`/getMemberInfo`·`/getToken` — 프로덕션 소스 | 작업 B는 토큰 전문 로그 2곳만 제거했다. 엔드포인트 제거는 미착수 (`tasks/02` D12) |
+| `TestController`가 비-ADMIN 요청에 403이 아니라 500을 반환 | `@PreAuthorize` 거부 시 `AccessDeniedException`이 `GlobalExceptionHandler`의 catch-all에 걸린다 | **실측 확인** — MEMBER 토큰으로 `GET /test` → `STATUS: 500`. 이 때문에 작업 B는 `@PreAuthorize` 대신 명시적 코드 검증을 택했다 (`tasks/02` D3-1) |
 | **결재 처리 기능 정지** | 서버는 영문 Enum 응답, 프론트는 한글 비교 | §5 |
 | **`insite` 집계의 무성 0건 의심** | `InsiteRepository:34·37`이 `'처리 중'`·`'대기'` **한글 리터럴**로 비교한다. 단계 1 이후 컬럼값은 `PROCESSING`·`PENDING`이다 | **단계 1.5 `[M]`과 동일 계열.** `insite`는 쓰기 0건이라 작업 A 범위 밖이나, DB 실측 필요 |
-| `GET /showAllMembersPage`가 무인증(전 사원 90명 조회 가능) | `roleLessList`에 없는데도 실제로는 게이트가 이 URI 하나뿐 | `tasks/02-secret-exposure.md` R11 — 인증 추가는 작업 E |
-| `ModelMapper`의 `setAmbiguityIgnored(true)` 전역 영향 | `config/BeanConfig.java:29` | `tasks/02` R6 |
-| `TestController`가 비-ADMIN 요청에 403이 아니라 500을 반환 | `@PreAuthorize` 거부가 예외로 처리되지 않음 | `tasks/02` D12 |
-| `CommuteController`가 응답 맵에서 원본 컬렉션 키(`member`/`members`/`notice`)를 제거하지 않는 구조 | `CommuteController.java` 다수 지점 | `tasks/02` D13 — 작업 B는 필드(직렬화)만 막고 키 구조는 그대로 둔다 |
-| CORS 전역 개방 (`Access-Control-Allow-Origin: *`) | 작업 B 파괴적 실측(E-1·E-2) 응답 헤더에서 재확인 | `tasks/02` §3-5 |
+| `GET /showAllMembersPage`가 무인증 (전 사원 90명 조회 가능) | `roleLessList`(`JwtAuthorizationFilter:57`)에 문자열이 **그대로 등재돼 있고**, `{memberId}` 같은 자리표시자가 없어 실제 URI와 완전 일치로 매칭된다 | **토큰 없이 200 실측 확인**(`tasks/02` R11 · P0 기준선 `06`). 🚫 `roleLessList`를 고쳐 닫으려 하지 말 것 — 인증 추가는 **작업 E**의 정책 결정에 속한다 |
+| `ModelMapper`의 `setAmbiguityIgnored(true)` 전역 영향 | `config/BeanConfig.java:29` | 매핑이 틀려도 예외 없이 진행된다. `resetPassword`가 `DTO → Entity → save()`로 전체를 덮어쓰는 경로에 걸려 있다. 작업 B S7에서 **유실 없음이 실측 확인**됐으나 구조적 위험은 남는다 (`tasks/02` R6) |
+| `CommuteController`가 응답 맵에서 원본 컬렉션 키(`member`/`members`/`notice`)를 제거하지 않는 구조 | `CommuteController.java` 다수 지점 | Controller가 `getName()`만 꺼내 쓰면서 원본을 맵에 남겨 컬렉션 전체가 응답에 실린다. `tasks/02` D13 — **작업 B는 필드(직렬화)만 막고 키 구조는 그대로 뒀다** |
+| `CommuteController:232~234` 부서 전체 PII 대량 출력 | `GET /corrections` 부서별 분기에서 `responseMap.forEach(println)` | `password`는 작업 B의 `@ToString(exclude)`로 닫혔으나, **부서원 전원의 이름·주소·연락처·이메일**이 콘솔에 남는다. 비밀 정보가 아니라 작업 B 범위 밖으로 판정 (`reports/02` §4) |
+| 프로필 이미지가 CWD 의존 **상대 경로**로 저장 | `FRONT-LOGIN/public/img`를 가리키는 상대 경로. `file.upload-dir`(`C:/login/`)을 쓰지 않는다 | `bootRun` 실행 위치에 따라 **리포 안에 사용자 업로드 파일이 쌓인다**(작업 B 검증 중 `final_clone2/` 생성·삭제). 후속 과제 둘: 저장 경로 교정 / `.gitignore` 등재 — 작업 B는 D2로 `.gitignore` 무변경 확정 (`reports/02` §4) |
 | 이월분 | `[K]` 재시도, `receivedAll` 미구현, `finalApproverDate` 의미, `[E]`, tx↔디스크 원자성, 테스트 부재 | 완료 보고서 §4 |
+
+> **작업 B(`3e2db66`·`4c2b50b`) 이후 갱신.** 위 항목 중 `showAllMembersPage` 무인증·CORS 전역 개방·
+> `TestController` 500·`JwtTokenInterceptor` 도달 불가는 **작업 B 검증에서 실측으로 재확인**됐다.
+> 나머지는 코드 대조 수준의 등재이며 실측되지 않았다 — **이 구분을 유지할 것.**
 
 ### 4-4. 작업 E — 읽기 경로 인가 (신설)
 
