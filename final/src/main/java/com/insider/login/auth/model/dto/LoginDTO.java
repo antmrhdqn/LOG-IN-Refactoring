@@ -33,7 +33,7 @@ public class LoginDTO {
     public String toString() {
         return "LoginDTO{" +
                 "memberId=" + memberId +
-                ", password='" + password + '\'' +
+                ", password='***'" +
                 '}';
     }
 }

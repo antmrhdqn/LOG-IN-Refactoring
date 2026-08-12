@@ -3,6 +3,8 @@ package com.insider.login.member.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.insider.login.auth.model.dto.LoginDTO;
+import com.insider.login.common.error.ErrorCode;
+import com.insider.login.common.error.exception.BusinessException;
 import com.insider.login.config.YmlConfig;
 import com.insider.login.department.service.DepartmentService;
 import com.insider.login.member.dto.MemberDTO;
@@ -25,6 +27,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -142,6 +145,11 @@ public class MemberController {
     @PutMapping("/resetPassword/{memberId}")
     public ResponseEntity<String> resetMemberPassword(@PathVariable("memberId") String memberId) {
         System.out.println("비밀번호 초기화");
+
+        if (!isAdmin()) {
+            throw new BusinessException(ErrorCode.HANDLE_ACCESS_DENIED);
+        }
+
         int memberIdToInt = Integer.parseInt(memberId);
 
         try {
@@ -157,6 +165,17 @@ public class MemberController {
         }
     }
 
+
+    //인증 정보에서 현재 로그인한 사원의 사번을 꺼낸다
+    private int getCurrentMemberId() {
+        return Integer.parseInt(SecurityContextHolder.getContext().getAuthentication().getName());
+    }
+
+    //인증 정보의 권한이 ADMIN인지 확인한다
+    private boolean isAdmin() {
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> "ADMIN".equals(a.getAuthority()));
+    }
 
     /* memberId가 겹친다면 마지막 3자릿수를 다시 생성을 해서 되돌린다 */
     private int generateNewMemberId(int memberId) {
@@ -313,21 +332,9 @@ public class MemberController {
 
         MemberDTO foundMember = memberService.findPasswordByMemberId(getTokenInfo().getMemberId());
         String existingPassword = foundMember.getPassword();
-        System.out.println("기존에 있는 비밀번호: " + existingPassword);
-        System.out.println("받은 비밀번호 값들: " + updatePasswordRequestDTO);
 
         if (updatePasswordRequestDTO.getNewPassword1() == null || updatePasswordRequestDTO.getCurrentPassword() == null) {
-            try {
-                MemberDTO memberInfo = memberService.findSpecificMember(getTokenInfo123().getMemberId());
-                String encodedPassword = passwordEncoder.encode("0000");
-                memberInfo.setPassword(encodedPassword);
-                memberService.resetPassword(memberInfo);
-                return ResponseEntity.ok("Password reset successfully");
-            } catch (NumberFormatException e) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid memberId");
-            } catch (Exception e) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to reset password");
-            }
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         /* 입력한 현재 비밀번호가 일치하는지 확인하는 logic */
@@ -474,7 +481,6 @@ public class MemberController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginDTO loginDTO) {
         System.out.println("inputted username: " + loginDTO.getMemberId());
-        System.out.println("inputted password: " + loginDTO.getPassword());
 
         MemberDTO getMemberInfo = memberService.checkLoggedMemberInfo(loginDTO.getMemberId());
 

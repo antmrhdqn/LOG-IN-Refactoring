@@ -160,7 +160,7 @@ public class Member {                 // JPA를 사용을 할 것이기 때문�
         return "Member{" +
                 "memberId=" + memberId +
                 ", name='" + name + '\'' +
-                ", password='" + password + '\'' +
+                ", password='***'" +
                 ", employedDate=" + employedDate +
                 ", address='" + address + '\'' +
                 ", phoneNo='" + phoneNo + '\'' +

@@ -108,10 +108,6 @@ public class CommuteController {
 
             result.put("result", processedMembersList);
 
-            result.forEach((key, value) -> {
-                System.out.println(key + " : " + value);
-            });
-
         } else if ("member".equals(target)) {
             int memberId = Integer.parseInt(targetValue);
             result.put("result", commuteService.selectCommuteListByMemberId(memberId, startWeek, endWeek));     // 회원별
@@ -280,10 +276,6 @@ public class CommuteController {
             }
 
             responseMap.put("result", processedCorrectionList);
-
-            responseMap.forEach((key, value) -> {
-                System.out.println(key + " : " + value);
-            });
         }
 
         ResponseMessage responseMessage = new ResponseMessage(200, "조회 성공", responseMap);

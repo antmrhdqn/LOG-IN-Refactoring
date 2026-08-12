@@ -24,7 +24,6 @@ public class TestController {
     @PostMapping("/test")
     public String test2(@RequestHeader("Authorization") String token){
         System.out.println("test controller postMapping 도착 ");
-        System.out.println("token: " + token);
         String jwtToken = token.substring(7);
 
         Claims claims = TokenUtils.getClaimsFromToken(jwtToken);
@@ -42,7 +41,6 @@ public class TestController {
     /* 1번째 방법 */
     @GetMapping("/getMemberInfo")
     public String getMemberInfo(@RequestHeader(AuthConstants.AUTH_HEADER) String token) {
-        System.out.println("token: " + token); // 확인용
         String jwtToken = token.substring(7);
         Claims claims = TokenUtils.getClaimsFromToken(jwtToken);
         Object memberIdObject = claims.get("memberId");

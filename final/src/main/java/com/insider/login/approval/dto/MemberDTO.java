@@ -1,5 +1,7 @@
 package com.insider.login.approval.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.sql.Date;
 
 public class MemberDTO {
@@ -86,6 +88,7 @@ public class MemberDTO {
         this.memberId = memberId;
     }
 
+    @JsonIgnore
     public String getPassword() {
         return password;
     }

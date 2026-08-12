@@ -6,8 +6,8 @@ spring:
       add-mappings: false
   datasource:
     url: jdbc:mysql://localhost:3306/insider
-    username: ohgiraffers
-    password: ohgiraffers
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   servlet:
     multipart:
@@ -41,7 +41,7 @@ websocket:
     max-text-message-buffer-size: 50000
 
 jwt:
-  key: asdkfjlkawdsjfw390r82309rjlkasdfja213498dlk
+  key: ${JWT_KEY}
   time: 86400000
 
 logging:
@@ -49,4 +49,3 @@ logging:
     org:
       hibernate:
         sql: debug
-        type: trace

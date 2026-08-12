@@ -491,8 +491,6 @@ public class CommuteService {
         List<CommuteMemberDTO> memberDTOList = memberList.stream()
                 .map(member -> modelMapper.map(member, CommuteMemberDTO.class))
                 .collect(Collectors.toList());
-        System.out.println("memberDTOList:");
-        memberDTOList.forEach(System.out::println);
 
         // 4. 멤버들의 부서 정보 조회
         Set<Integer> departNoSet = memberDTOList.stream()

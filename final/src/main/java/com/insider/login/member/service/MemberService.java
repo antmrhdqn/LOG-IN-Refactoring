@@ -188,9 +188,7 @@ public class MemberService {
     }
 
     public List<MemberDTO> showAllMembers() {
-        System.out.println("all members: " + memberRepository.findAll());
         List<Member> memberLists = memberRepository.findAll();
-        System.out.println("memberLists service: " + memberLists);
         Type listType = new TypeToken<List<MemberDTO>>() {}.getType();
         List<MemberDTO> memberDTOList = modelMapper.map(memberLists, listType);
 
@@ -269,7 +267,6 @@ public class MemberService {
     }
 
     public MemberDTO checkLoggedInfo(LoginDTO loginDTO) {
-        System.out.println("checkedLoggedInfo: " + loginDTO);
         Member foundMember = memberRepository.findById(loginDTO.getMemberId()).orElse(null);
         if (foundMember != null) {
             return modelMapper.map(foundMember, MemberDTO.class);

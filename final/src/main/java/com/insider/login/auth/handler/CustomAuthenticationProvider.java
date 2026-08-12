@@ -32,7 +32,6 @@ public class CustomAuthenticationProvider implements AuthenticationProvider { //
         String pass = (String) loginToken.getCredentials(); // 인증대상자가 존재하는지 확인하는 logic (PWD) ... object type을 반환을 하기 때문에 String으로 downcasting
         System.out.println("받은 loginToken의 정보: " + loginToken);
         System.out.println("로그인할 때 id 잘 기입을 했는지 확인용: " + id);
-        System.out.println("로그인할 때 pass 잘 기입을 했는지 확인용: " + pass);
 
         DetailsMember detailsMember = (DetailsMember) detailsService.loadUserByUsername(id); // 구성원의 정보를 받고
 

@@ -1,5 +1,6 @@
 package com.insider.login.member.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.insider.login.common.utils.MemberRole;
 import com.insider.login.department.dto.DepartmentDTO;
 import com.insider.login.position.dto.PositionDTO;
@@ -61,6 +62,7 @@ public class ShowMemberDTO {
         this.name = name;
     }
 
+    @JsonIgnore
     public String getPassword() {
         return password;
     }

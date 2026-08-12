@@ -1,5 +1,6 @@
 package com.insider.login.commute.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -21,6 +22,7 @@ public class CommuteMember {
     private String name;                // 구성원 이름
 
     @Column(name = "password", nullable = false)
+    @JsonIgnore
     private String password;            // 비밀번호
 
 //    @Column(name = "depart_no", nullable = false, insertable = false, updatable = false)

@@ -35,7 +35,6 @@ public class CustomAuthSuccessHandler extends SavedRequestAwareAuthenticationSuc
             responseMap.put("message","로그인 성공입니다.");
             // 로그인이 성공을 했을 때 token 정보도 같이 줘야한다
             String token = TokenUtils.generateJwtToken(memberDTO);                                                  // token setting하는 logic
-            System.out.println("token 정보: " + token); // eg) token 정보: eyJkYXRlIjoxNzE0NDU1NTU2OTM3LCJ0eXBlIjoiand0IiwiYWxnIjoiSFMyNTYifQ.eyJwb3NpdGlvbk5hbWUiOiLslYzrsJQiLCJSb2xlIjoiQURNSU4iLCJpbWFnZSI6IuydtOuvuOyngOqwgCDrk6TslrTqsIgg6rK966GcIiwic3ViIjoiMjQwNDAxNTY4IiwibWVtYmVyU3RhdHVzIjoi7J6s7KeBIiwidXNlck5hbWUiOiLquYDsp4DtmZgiLCJleHAiOjE3MTQ1NDE5NTYsImRlcGFydE5hbWUiOiLsnbjsgqztjIAiLCJtZW1iZXJJZCI6MjQwNDAxNTY4fQ.fsgaqYu7OQGzlsqDd0lINkBIIPWUFpJVwKXBvYaPeeI
             responseMap.put("token", token);
             response.addHeader(AuthConstants.AUTH_HEADER, AuthConstants.TOKEN_TYPE + " " + token);         // token의 구조가 BEARER token... 이기 때문에 이런 형식으로 추가를 해준다
         } else {                                             // 그렇지 않으면 -> 휴면 상태라고 뜨게 하고 로그인을 못하겠금 막아준다

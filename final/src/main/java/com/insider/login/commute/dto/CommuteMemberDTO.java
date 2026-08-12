@@ -1,5 +1,6 @@
 package com.insider.login.commute.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.insider.login.commute.dto.CommuteDTO;
 import lombok.*;
 
@@ -10,11 +11,12 @@ import java.util.List;
 @AllArgsConstructor
 @Getter
 @Setter
-@ToString
+@ToString(exclude = "password")
 public class CommuteMemberDTO {
 
     private int memberId;               // 구성원 번호 (사번)
     private String name;                // 구성원 이름
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;            // 비밀번호
     private int departNo;               // 부서 번호
     private String positionLevel;        // 직급레벨

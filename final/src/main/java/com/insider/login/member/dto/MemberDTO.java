@@ -1,5 +1,6 @@
 package com.insider.login.member.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.insider.login.common.utils.MemberRole;
 import com.insider.login.department.dto.DepartmentDTO;
 import com.insider.login.department.entity.Department;
@@ -94,6 +95,7 @@ public class MemberDTO {
         this.name = name;
     }
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String getPassword() {
         return password;
     }
@@ -240,7 +242,7 @@ public class MemberDTO {
         return "MemberDTO{" +
                 "memberId=" + memberId +
                 ", name='" + name + '\'' +
-                ", password='" + password + '\'' +
+                ", password='***'" +
                 ", employedDate=" + employedDate +
                 ", address='" + address + '\'' +
                 ", phoneNo='" + phoneNo + '\'' +
