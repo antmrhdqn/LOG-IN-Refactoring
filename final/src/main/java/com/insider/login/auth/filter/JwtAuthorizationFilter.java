@@ -113,6 +113,12 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter {
                 throw new RuntimeException("token이 존재하지 않습니다");
             }
         } catch (Exception e) {
+            // 인증 실패는 401로 나가야 한다.
+            // chain.doFilter 가 try 안에 있어 하위 처리 예외도 이 블록에 도달할 수 있고,
+            // 그때는 응답이 이미 커밋돼 setStatus 가 조용히 무시된다. 커밋 여부를 먼저 본다.
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            }
             // 예외 발생 시
             response.setContentType("application/json");
             PrintWriter printWriter = response.getWriter();

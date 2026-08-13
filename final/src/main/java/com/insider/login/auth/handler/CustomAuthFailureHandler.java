@@ -55,6 +55,9 @@ public class CustomAuthFailureHandler implements AuthenticationFailureHandler {
 
         jsonObject = new JSONObject(resultMap);
 
+        // 인증 실패는 예외 종류와 무관하게 401 단일. 상태 코드로 계정 존재 여부를 흘리지 않는다.
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+
         response.setCharacterEncoding("UTF-8");
         response.setContentType("application/json");
         PrintWriter out = response.getWriter();                 // 응답을 주도록 setting
