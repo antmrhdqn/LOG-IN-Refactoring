@@ -6,6 +6,7 @@
 > `docs/security/tasks/01-write-authz.md` · `docs/security/reports/01-write-authz-report.md`로 옮겼다.
 > **`docs/security/` 아래에 도메인 하위 폴더를 두지 않는다** (규칙은 `CLAUDE.md`).
 > 이동 ① 시점의 "원래 위치에 그대로 둔다"는 방침은 이동 ②로 대체됐다.
+> 갱신: 2026-08-14 (작업 F 완료 — §4-5 신설, §4-3 등재 4건 추가)
 > 선행: 전자결재 도메인 리팩토링 7단계 완료 (`docs/refactoring/completed/approval-domain.md`)
 > 근거: 완료 보고서 §4 🔴 / `reports/07-controller-report.md` §6-2 / 2026-07-31 실측 (§3)
 > **이것은 리팩토링이 아니다.** 새 작업 스트림이며, `plan.md`는 이번 규모에 불필요하여 본 문서에 흡수했다.
@@ -109,7 +110,8 @@ spec `[A-확장]`은 "회수 API에 인증 정보가 없다"를 지적했고 단
 | **A** | **쓰기 경로 권한 경계 4건** | `approval/**` | **완료** — `docs/security/tasks/01-write-authz.md` |
 | **B** | 비밀 정보 노출 차단(`jwt.key`·DB 계정 평문 / 응답 `password` **9지점** / 로그 **13지점**) + 비밀번호 경로 2종(`resetPassword`·`updateOwnPassword`) 인가 | `resources/`, `member/**`, `auth/**`, `approval/dto`(1파일), **`commute/**`** | **완료** — `tasks/02-secret-exposure.md` (구 B+C 통합, `commute` 도메인 편입 — 이유는 해당 문서 §2·D13) |
 | **E** | **읽기 경로 인가 — 상세 조회·파일 다운로드** | `approval/**` | **완료** — `tasks/03-read-authz.md` · 정책 확정(D1~D10) 후 착수 (§4-4) |
-| D | 등재만 — 저장형 XSS, 인증 실패 200, CORS 전역 개방, 상태값 불일치 외 | — | §4-3 |
+| **F** | **인증 실패 응답 정상화 (200 → 401)** | `auth/**` | **완료** — `tasks/04-auth-failure-status.md` (§4-5) |
+| D | 등재만 — 저장형 XSS, CORS 전역 개방, 상태값 불일치 외 | — | §4-3 |
 
 ### 4-1. 작업 B (전반부) — `jwt.key`·비밀번호 경로. A의 신뢰 기반이지만, 실질 긴급도는 낮다
 
@@ -173,7 +175,6 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 | 항목 | 지점 | 비고 |
 |---|---|---|
 | 저장형 XSS | `ApprovalDetail.js:198` `dangerouslySetInnerHTML` + 서버 sanitize 0건 | 의존성 추가·허용 태그 정책·기존 데이터 처리가 붙는다 |
-| 인증 실패가 HTTP 200 | `JwtAuthorizationFilter:115~124`, `CustomAuthFailureHandler:20~66` | `setStatus()` 미호출. 본문에만 `{"status":401}`. **작업 B 검증에서 재확인** — 만료·미제시 토큰이 200으로 나가 캡처·검증 시 성공으로 오판할 수 있다 (`tasks/02` R16) |
 | CORS 전역 개방 | `HeaderFilter:14` `Allow-Origin: *`, `WebConfig`의 origin 제한보다 앞선다 | 작업 B 파괴적 실측(E-1·E-2) 응답 헤더에서 **재확인** — `tasks/02` §3-5 |
 | 죽은/무효 권한 코드 | `Position.java:11` `@PreAuthorize` (엔티티라 무효 + SpEL 오류), `JwtTokenInterceptor` 도달 불가 | `JwtTokenInterceptor`의 도달 불가는 작업 B에서 **직접 확인**됐다 — `WebConfig`가 `@Bean`으로 객체만 만들고 `addInterceptors()` 오버라이드가 코드베이스 어디에도 없다 (`reports/02` §4) |
 | `TestController` 잔존 | `/test`·`/getMemberInfo`·`/getToken` — 프로덕션 소스 | 작업 B는 토큰 전문 로그 2곳만 제거했다. 엔드포인트 제거는 미착수 (`tasks/02` D12) |
@@ -189,6 +190,10 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 | **`finalApproverDate`가 임시저장 문서에 찍힌다** | 상세 조회의 최종 승인일 계산 분기 | 결재선 모양이 같은 `PROCESSING` 문서는 `""`인데 `TEMP_SAVED`는 값이 들어간다. **원인 미확인.** 작업 E 기준선 캡처에서 실측 (`tasks/03` §3-4) |
 | **ADMIN·감사 role의 전체 열람** | — | 작업 E D2가 **도입하지 않기로 확정**했다. 부서장·감사 role은 스키마 영향이 있고, ADMIN 예외는 취약점을 role 하나 뒤로 물릴 뿐이다 (`tasks/03` §7 D2) |
 | **기안자 본인을 참조선에 등록할 수 있다** | 기안·재임시저장 시 `referencer`에 기안자 사번을 넣으면 그대로 저장된다 | 작업 E S2 스모크에서 관찰. 기능상 무해(열람 판정은 기안자 단계에서 이미 통과)하나 서버가 막지 않는다. **코드 대조 없이 관찰만** (`reports/03` §6-1) |
+| **필터 예외 시 스택트레이스 전문 노출** | `CustomAuthenticationFilter`의 `IOException → RuntimeException`이 필터를 빠져나가 Spring 기본 `/error`로 떨어진다 | **작업 F 기준선 실측** — 인증 없이 `POST /login` 하나로 **8~9KB 스택트레이스**(내부 패키지 구조·라이브러리)가 나온다. `@RestControllerAdvice`는 DispatcherServlet 밖 필터 예외에 닿지 않는다 (`tasks/04` §3-3) |
+| **만료 토큰과 위조 토큰이 구분되지 않는다** | `TokenUtils.isValidToken()`이 `ExpiredJwtException`·`JwtException`을 삼키고 `false`만 반환 → `jsonResponseWrapper`의 `Token Expired`·`SignatureException` 분기가 **도달 불가능한 죽은 코드** | **작업 F 기준선 실측** — 캡처 `09`와 `10`의 응답 본문이 **바이트 단위로 동일**(해시 `6c000f76`) |
+| **로그인 실패 메시지에 의한 계정 열거** | `CustomAuthFailureHandler`가 "존재하지 않는 사용자입니다" / "아이디 또는 비밀번호가 틀립니다"를 구분해 응답한다 | **작업 F 기준선 실측** — 캡처 `14`(62B) ≠ `15`(55B). 작업 F는 **상태 코드를 401로 단일화해 열거 축을 늘리지 않았고**(D5), 본문은 무변경으로 뒀다 |
+| **죽은 `ErrorCode` 상수 3건** | `ErrorCode.java:21~23` — `EXPIRED_TOKEN`(M002) · `INVALID_TOKEN`(M003) · `UNSUPPORTED_TOKEN`(M004) | **작업 F 검색 확인 실측** — 401로 선언돼 있으나 **사용처 0건**. 작업 F는 되살리지 않았다 (D3 — 본문 무변경이라 꺼낼 자리가 없다) |
 | 이월분 | `[K]` 재시도, `receivedAll` 미구현, `finalApproverDate` 의미, `[E]`, tx↔디스크 원자성, 테스트 부재 | 완료 보고서 §4. **`receivedAll` 미구현은 작업 E에서 400/C001로 실측 확인**됐고, 상세가 목록보다 넓은 이유가 여기에 있다 (`tasks/03` D3) |
 
 > **작업 B(`3e2db66`·`4c2b50b`) 이후 갱신.** 위 항목 중 `showAllMembersPage` 무인증·CORS 전역 개방·
@@ -202,6 +207,10 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 > ⚠ `GET /showAllMembersPage` 무인증 행의 "인증 추가는 작업 E의 정책 결정에 속한다"는 서술은
 > **더 이상 유효하지 않다.** 작업 E는 `approval/**` 읽기 경로만 다뤘고, `member/**`·`commute/**`의
 > 읽기 인가는 **후속 과제로 남아 있다** (§4-4 경계 참조).
+>
+> **작업 F 이후 갱신.** "인증 실패가 HTTP 200" 행은 **닫혔고 §4-5로 이동**했다.
+> 위 신규 4건은 전부 **작업 F의 기준선 캡처·검색 확인에서 실측**된 것이며, 코드 대조 수준의
+> 등재와 구분해 읽을 것.
 
 ### 4-4. 작업 E — 읽기 경로 인가 ✅ **완료 (2026-08-12)**
 
@@ -257,6 +266,64 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 
 > 이 항목을 등재했던 이유는 §1의 경계 그 자체였다 — **"열거에 없으니 없는 문제"로 읽히는 것을 막는다.**
 > 실제로 착수 후 실측에서 초안이 몰랐던 두 결함이 나왔다.
+
+### 4-5. 작업 F — 인증 실패 응답 정상화 ✅ **완료 (2026-08-14)**
+
+명세 `tasks/04-auth-failure-status.md` · 보고서 `reports/04-auth-failure-status-report.md`
+
+§4-3에 "인증 실패가 HTTP 200"으로 등재돼 있던 항목이다. 작업 B 검증(`tasks/02` R16)이
+**"만료·미제시 토큰이 200으로 나가 캡처·검증 시 성공으로 오판할 수 있다"**고 지적했고,
+그 지적이 이 작업의 착수 근거가 됐다.
+
+#### 결함
+
+프로덕션에서 `setStatus`를 부르는 곳은 `CustomAuthenticationFilter:43`(400, 이미 올바름)
+**단 1곳**이고 `AuthenticationEntryPoint`도 0건이었다 — **아무도 401을 세팅하지 않았다.**
+
+| 지점 | 증상 |
+|---|---|
+| `JwtAuthorizationFilter` `catch` | 본문에만 `{"status":401,…}`. HTTP 상태는 200 |
+| `CustomAuthFailureHandler` | **본문에 401조차 없다**(`{"failType":…}`). 한 단계 더 나쁘다 |
+
+후자 때문에 `Login.js`의 `response.status === 401` 분기는 **한 번도 실행된 적 없는 죽은 코드**였다.
+
+#### 처방 — 코드 2파일, `git diff` +9 / −0
+
+- **[F1]** `JwtAuthorizationFilter` `catch` 진입 직후 — `isCommitted()` 가드 + `SC_UNAUTHORIZED`
+- **[F2]** `CustomAuthFailureHandler` — `getWriter()` 호출 **앞**에 `SC_UNAUTHORIZED`
+
+**기존 라인 수정·삭제 0줄. 신규 `import` 0건. `ErrorCode` 사용 0건.**
+
+#### 확정된 정책 (후속 작업이 따를 선례)
+
+- **응답 본문은 건드리지 않는다.** 상태 코드만 바로잡으면 판정이 "본문 해시 동일 + 상태 코드"
+  두 숫자로 끝난다
+- **인증 실패는 예외 종류와 무관하게 401 단일.** 상태 코드로 계정 존재 여부를 흘리지 않는다.
+  프론트가 `=== 401` 하나만 보므로, 403으로 갈래를 내면 그 경우만 조용히 실패한다
+- **필터·핸들러에서는 `ErrorCode`/`ErrorResponse`로 위임할 수 없다.** `@RestControllerAdvice`는
+  DispatcherServlet 밖에 닿지 않는다 — 같은 기준선 안에서 대조 실증됐다
+  (캡처 `07` = `ErrorResponse` C999 90B / `16`·`17` = Spring 기본 에러 8~9KB)
+- **`catch`가 커밋된 응답에 도달할 수 있으면 `isCommitted()` 가드를 둔다.** 없으면 `setStatus`가
+  조용히 무시되고, 무시됐다는 사실도 남지 않는다
+
+#### 검증
+
+기준선 17항목을 **코드 수정 전에** 캡처하고(`C:\temp\auth-status\`), 처방 후 `-Compare`로 판정했다.
+**전 항목 PASS** — 전환 8건(전부 `hashSame = True`, 상태 코드만 바뀜) · 비회귀 9건.
+화면 검증에서 `POST /login`이 401로 찍히고 alert은 처방 전과 동일함을 확인했다.
+
+> **R11 정규화 재판정이 실제로 발동했다 — 예상과 반대 방향에서.**
+> 명세는 인증 실패 본문(`json-simple`의 `JSONObject`, HashMap 기반)의 키 순서 변동을 우려했으나
+> 08~15는 재기동을 건너서도 전부 해시가 동일했고, **정상 응답 쪽(`02` 목록, Jackson 파생 속성)이
+> 흔들렸다.** 재판정이 없었으면 FAIL로 오판할 건이었다.
+
+#### 경계
+
+`roleLessList` · 응답 본문 · `CustomAuthSuccessHandler`(휴면 계정 200) ·
+`CustomAuthenticationFilter`(400) · `server.error.include-stacktrace` · 프론트엔드는
+**전부 범위 밖**으로 두었다. 이 중 스택트레이스 노출·계정 열거·만료/위조 미구분·죽은 `ErrorCode`
+3건은 §4-3에 **실측 등급으로 등재**됐다.
+
 
 ---
 
@@ -353,4 +420,5 @@ application.yml:45   jwt.time: 86400000   (24h, 블랙리스트 없음)
 | `docs/refactoring/approval/reports/07-controller-report.md` | §6-2 제3자 승인 실측 원문 |
 | `docs/refactoring/approval/spec.md` | `[A-확장]`이 왜 회수 API에만 적용됐는지 |
 | `docs/reference/leave-pattern.md` | ⚠ §9 `ErrorCode` 예시는 실물과 인자 순서가 다르다. 실물은 `(int status, String code, String message)` |
+| **`docs/security/tools/capture-auth-status.ps1`** | 작업 F 전용 개조본. `capture-authz.ps1`에 **POST 본문·원문 Authorization 헤더·상태 코드 판정 그룹**을 추가했다. 판정 그룹이 4종(해시 불변 / 해시+200→401 / shape 동결 / 로그인 성공)이다 |
 | **`docs/security/tools/capture-authz.ps1`** | **인가 작업 공용 검증 도구** — 응답 기준선 캡처 · SHA256 대조 · 키 순서 정규화 재판정. 작업 E에서 처음 사용(20항목). 매트릭스(`Get-Matrix`)만 갈아끼우면 다른 작업에 재사용된다.<br>⚠ 토큰(`tokens.ps1`)과 캡처물은 **리포 밖**(`C:\temp\`)에 둔다 — PII·실제 저장명·서버 경로가 들어간다 |
