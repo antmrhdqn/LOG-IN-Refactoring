@@ -54,7 +54,15 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter {
         response.setContentType("application/json; charset=UTF-8");
 
 //        System.out.println("===== JwtAuthorizationFilter 도착 =====");
-        List<String> roleLessList = Arrays.asList("/signUp","/registDepart","/registPosition", "/login","/members/{memberId}","/showAllMembersPage", "/announces", "/announces/{ancNo}, /approvals", "/resetMemberPassword/{memberId}", "/members/updateProfile/{memberId}", "/", "/wss/chatting");
+        /* 인증 없이 통과시킬 경로. 판정이 String.equals 라 이 목록에 없는 URI 는 전부 토큰이 필요하다.
+         * 4개만 남은 이유 (2026-08-14 전수 판정 — docs/security/tasks/05-authn-boundary.md §3-2):
+         *   /signUp        프론트가 이 호출에만 토큰을 붙이지 않는다 (MemberAPICalls.js). 닫으면 구성원 등록이 정지한다
+         *   /login         인증 시작점
+         *   /              루트 매핑이 없어 정적 리소스 핸들러와의 상호작용이 불확정. 닫는 실익이 없다
+         *   /wss/chatting  브라우저 WebSocket 생성자는 커스텀 헤더를 지정할 수 없다. 프론트 수정으로도 닫히지 않는다
+         * 판정 방식을 String.equals 외의 것으로 바꾸면 지워 둔 원소가 되살아나 무인증으로 열린다.
+         * 되살리거나 바꾸기 전에 §3-2 를 먼저 읽을 것. */
+        List<String> roleLessList = Arrays.asList("/signUp", "/login", "/", "/wss/chatting");
 
         /* 인증은 했지만 권한이 필요 없는 resource들은 그냥 다음 동작으로 넘어간다... 하지만 권한이 필요한 resource면 -> SecurityContextHolder에 권한 정보를 같이 줘서, 거기에 접근을 할 수 있게 해줘야 한다 */
         if (roleLessList.contains((request.getRequestURI()))) {
